@@ -3,9 +3,21 @@ main: com.customshop.CustomShopPlugin
 version: 1.0.0
 api-version: '1.21'
 depend: [Vault]
+
 commands:
   shop:
+    description: Opens the custom shop.
     permission: customshop.use
+  bounty:
+    description: Opens the bounty menu.
+    permission: customshop.use
+    usage: /bounty
+  bounties:
+    description: Shows the top 10 active bounties.
+    permission: customshop.use
+    usage: /bounties
+
 permissions:
   customshop.use:
+    description: Allows use of the shop and bounty commands.
     default: true
