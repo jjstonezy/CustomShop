@@ -1,0 +1,11 @@
+name: CustomShop
+main: com.customshop.CustomShopPlugin
+version: 1.0.0
+api-version: '1.21'
+depend: [Vault]
+commands:
+  shop:
+    permission: customshop.use
+permissions:
+  customshop.use:
+    default: true

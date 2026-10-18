@@ -1,0 +1,35 @@
+shop-title: "&a&lServer Shop"
+size: 27
+items:
+  diamond:
+    material: DIAMOND
+    amount: 1
+    price: 100
+    slot: 11
+    name: "&bDiamond"
+    lore:
+      - "&7Buy 1 diamond"
+      - "&6Price: $100"
+  golden_apple:
+    material: GOLDEN_APPLE
+    amount: 1
+    price: 50
+    slot: 13
+    name: "&6Golden Apple"
+    lore:
+      - "&7Buy 1 golden apple"
+      - "&6Price: $50"
+  iron:
+    material: IRON_INGOT
+    amount: 16
+    price: 25
+    slot: 15
+    name: "&f16 Iron Ingots"
+    lore:
+      - "&7Buy 16 iron ingots"
+      - "&6Price: $25"
+messages:
+  bought: "&aPurchased %item% for $%price%!"
+  nomoney: "&cYou do not have enough money."
+  full: "&cInventory full."
+  error: "&cPurchase failed."
