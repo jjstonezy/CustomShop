@@ -17,9 +17,9 @@ jobs:
           cache: maven
 
       - name: Build plugin
-        run: mvn --batch-mode clean package
+        run: mvn --batch-mode -f CustomShop_Project/pom.xml clean package
 
       - uses: actions/upload-artifact@v4
         with:
           name: CustomShop-JAR
-          path: target/*.jar
+          path: CustomShop_Project/target/*.jar
