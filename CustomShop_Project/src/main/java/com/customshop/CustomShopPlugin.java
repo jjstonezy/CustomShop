@@ -1,6 +1,8 @@
 
 package com.customshop;
 
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -29,13 +31,18 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExecutor {
+public class CustomShopPlugin extends JavaPlugin
+        implements Listener, CommandExecutor {
 
     private Economy eco;
 
+    private static final String PREFIX =
+            "\u00A7x\u00A7C\u00A70\u00A78\u00A74\u00A7F\u00A7C\u00A7l[SITE CHAOS] - \u00A7r";
+
+    private final MiniMessage miniMessage = MiniMessage.miniMessage();
+
     private final Map<UUID, String> currentCategory = new HashMap<>();
     private final Map<UUID, Map<Integer, Material>> sellSlots = new HashMap<>();
-
     private final Map<UUID, Double> bounties = new HashMap<>();
     private final Map<UUID, String> bountyNames = new HashMap<>();
     private final Map<UUID, Set<UUID>> bountyPosters = new HashMap<>();
@@ -67,22 +74,114 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
         eco = provider.getProvider();
 
-        Objects.requireNonNull(getCommand("shop")).setExecutor(this);
-        Objects.requireNonNull(getCommand("bounty")).setExecutor(this);
-        Objects.requireNonNull(getCommand("bounties")).setExecutor(this);
-        Objects.requireNonNull(getCommand("menu"), "menu command missing from plugin.yml").setExecutor(this);
+        if (getCommand("shop") == null || getCommand("bounty") == null
+                || getCommand("bounties") == null || getCommand("menu") == null) {
+            getLogger().severe("A required command is missing from plugin.yml!");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        getCommand("shop").setExecutor(this);
+        getCommand("bounty").setExecutor(this);
+        getCommand("bounties").setExecutor(this);
+        getCommand("menu").setExecutor(this);
 
         bountyFile = new File(getDataFolder(), "bounties.yml");
         loadBounties();
 
         Bukkit.getPluginManager().registerEvents(this, this);
-        getLogger().info("CustomShop enabled with bounty system!");
+        getLogger().info("CustomShop enabled with economy and bounty system!");
     }
 
     @Override
     public void onDisable() {
         saveBounties();
     }
+
+    // ==================== MESSAGES AND FORMATTING ====================
+
+    private void msg(CommandSender sender, String message) {
+        sender.sendMessage(PREFIX + color(message));
+    }
+
+    private void broadcast(String message) {
+        Bukkit.broadcastMessage(PREFIX + color(message));
+    }
+
+    private String color(String text) {
+        return ChatColor.translateAlternateColorCodes('&',
+                text == null ? "" : text);
+    }
+
+    private String formatTitle(String text) {
+        if (text == null || text.isBlank()) {
+            text = "<green><bold>Server Shop</bold></green>";
+        }
+
+        try {
+            if (text.contains("<") && text.contains(">")) {
+                return LegacyComponentSerializer.legacySection().serialize(
+                        miniMessage.deserialize(text)
+                );
+            }
+        } catch (Exception ex) {
+            getLogger().warning("Invalid MiniMessage shop title: " + ex.getMessage());
+        }
+
+        return color(text);
+    }
+
+    private String readableItemName(Material material) {
+        String[] words = material.name().toLowerCase(Locale.ROOT).split("_");
+        StringJoiner result = new StringJoiner(" ");
+
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                result.add(Character.toUpperCase(word.charAt(0))
+                        + word.substring(1));
+            }
+        }
+
+        return result.toString();
+    }
+
+    private String configuredItemName(ConfigurationSection item, Material material) {
+        String name = item.getString("name", "");
+
+        if (name == null || name.isBlank()) {
+            return readableItemName(material);
+        }
+
+        String stripped = ChatColor.stripColor(color(name));
+        return stripped == null || stripped.isBlank()
+                ? readableItemName(material) : stripped;
+    }
+
+    private String money(double amount) {
+        return String.format(Locale.US, "%,.2f", amount)
+                .replaceAll("\\.00$", "");
+    }
+
+    private ItemStack makeItem(Material material, String name, List<String> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+
+        if (meta != null) {
+            meta.setDisplayName(color(name));
+
+            List<String> coloredLore = new ArrayList<>();
+            for (String line : lore) {
+                coloredLore.add(color(line));
+            }
+
+            meta.setLore(coloredLore);
+            item.setItemMeta(meta);
+        }
+
+        return item;
+    }
+
+    // ==================== COMMANDS ====================
 
     @Override
     public boolean onCommand(CommandSender sender, Command command,
@@ -93,30 +192,31 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
 
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("This command can only be used by a player.");
+            msg(sender, "&cThis command can only be used by a player.");
             return true;
         }
 
-        if (command.getName().equalsIgnoreCase("menu")) {
-            openMenu(player, 1);
-        } else if (command.getName().equalsIgnoreCase("bounty")) {
-            openBountyTargets(player);
-        } else {
-            openMain(player);
+        switch (command.getName().toLowerCase(Locale.ROOT)) {
+            case "menu" -> openMenu(player, 1);
+            case "bounty" -> openBountyTargets(player);
+            default -> openMain(player);
         }
 
         return true;
     }
 
-    // ==================== SHOP ====================
+    // ==================== MAIN SHOP ====================
 
     private void openMain(Player player) {
-        String title = color(getConfig().getString(
-                "shop-title", "&a&lServer Shop"));
+        String title = formatTitle(getConfig().getString(
+                "shop-title", "<green><bold>Server Shop</bold></green>"));
 
-        Inventory inv = Bukkit.createInventory(
-                null, getConfig().getInt("size", 27), title);
+        int size = getConfig().getInt("size", 27);
+        if (size < 9 || size > 54 || size % 9 != 0) {
+            size = 27;
+        }
 
+        Inventory inv = Bukkit.createInventory(null, size, title);
         ConfigurationSection categories =
                 getConfig().getConfigurationSection("categories");
 
@@ -132,25 +232,24 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
                 ItemStack icon = new ItemStack(material);
                 ItemMeta meta = icon.getItemMeta();
-                meta.setDisplayName(color(cat.getString("name", key)));
-                meta.setLore(List.of(color("&7Click to browse")));
-                icon.setItemMeta(meta);
+
+                if (meta != null) {
+                    meta.setDisplayName(color(cat.getString("name", key)));
+                    meta.setLore(List.of(color("&7Click to browse")));
+                    icon.setItemMeta(meta);
+                }
 
                 int slot = cat.getInt("slot", 0);
-                if (slot >= 0 && slot < inv.getSize()) {
+                if (slot >= 0 && slot < inv.getSize() - 1) {
                     inv.setItem(slot, icon);
                 }
             }
         }
 
-        ItemStack sell = new ItemStack(Material.GOLD_INGOT);
-        ItemMeta sellMeta = sell.getItemMeta();
-        sellMeta.setDisplayName(color("&c&lSell Items"));
-        sellMeta.setLore(List.of(
-                color("&7Sell items from your inventory"),
-                color("&eYou receive 70% of the buy price")));
-        sell.setItemMeta(sellMeta);
-        inv.setItem(inv.getSize() - 1, sell);
+        inv.setItem(inv.getSize() - 1, makeItem(
+                Material.GOLD_INGOT, "&6&lSell Items",
+                List.of("&7Sell eligible items from your inventory",
+                        "&eYou receive 70% of the buy price")));
 
         currentCategory.remove(player.getUniqueId());
         sellSlots.remove(player.getUniqueId());
@@ -168,7 +267,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             inv.setItem(10, makeItem(Material.CHEST, "&a&lShop",
                     List.of("&7Browse the server shop", "&eClick to open")));
             inv.setItem(12, makeItem(Material.PLAYER_HEAD, "&c&lBounty Board",
-                    List.of("&7Place bounties on online players", "&7View and claim bounties", "&eClick to open")));
+                    List.of("&7Place bounties on online players",
+                            "&7View and claim bounties", "&eClick to open")));
             inv.setItem(14, makeItem(Material.EMERALD, "&6&lAuction Market",
                     List.of("&7Player-to-player item trading", "&eComing soon")));
             inv.setItem(16, makeItem(Material.ENCHANTED_BOOK, "&d&lKits",
@@ -181,7 +281,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             inv.setItem(12, makeItem(Material.BOOK, "&a&lQuests",
                     List.of("&7View server quests", "&eComing soon")));
             inv.setItem(14, makeItem(Material.NETHER_STAR, "&d&lMore Features",
-                    List.of("&7More server features will appear here", "&eComing soon")));
+                    List.of("&7More server features will appear here",
+                            "&eComing soon")));
             inv.setItem(45, makeItem(Material.ARROW, "&ePrevious Page &7(1/2)",
                     List.of("&7Return to the first page")));
             inv.setItem(49, makeItem(Material.BARRIER, "&c&lClose Menu",
@@ -192,6 +293,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         sellSlots.remove(player.getUniqueId());
         player.openInventory(inv);
     }
+
+    // ==================== SHOP CATEGORIES ====================
 
     private void openCategory(Player player, String key) {
         ConfigurationSection cat =
@@ -211,17 +314,21 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                         item.getString("material", ""));
                 if (material == null) continue;
 
-                ItemStack stack = new ItemStack(
-                        material, Math.max(1, item.getInt("amount", 1)));
+                int amount = Math.max(1, item.getInt("amount", 1));
+                amount = Math.min(amount, material.getMaxStackSize());
 
+                ItemStack stack = new ItemStack(material, amount);
                 ItemMeta meta = stack.getItemMeta();
-                meta.setDisplayName(color(item.getString(
-                        "name", "&f" + material.name())));
-                meta.setLore(List.of(
-                        color("&7Buy amount: " + stack.getAmount()),
-                        color("&6Price: $" + item.getDouble("price")),
-                        color("&eClick to buy")));
-                stack.setItemMeta(meta);
+
+                if (meta != null) {
+                    meta.setDisplayName(color(item.getString(
+                            "name", "&f" + readableItemName(material))));
+                    meta.setLore(List.of(
+                            color("&7Buy amount: " + amount),
+                            color("&6Price: $" + money(item.getDouble("price"))),
+                            color("&eClick to buy")));
+                    stack.setItemMeta(meta);
+                }
 
                 int slot = item.getInt("slot", 0);
                 if (slot >= 0 && slot < 45) {
@@ -230,16 +337,15 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             }
         }
 
-        ItemStack back = new ItemStack(Material.ARROW);
-        ItemMeta backMeta = back.getItemMeta();
-        backMeta.setDisplayName(color("&cBack to Shop"));
-        back.setItemMeta(backMeta);
-        inv.setItem(45, back);
+        inv.setItem(45, makeItem(Material.ARROW, "&cBack to Shop",
+                List.of("&7Return to categories")));
 
         currentCategory.put(player.getUniqueId(), key);
         sellSlots.remove(player.getUniqueId());
         player.openInventory(inv);
     }
+
+    // ==================== SELL ITEMS ====================
 
     private void openSell(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, sellTitle);
@@ -261,17 +367,22 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                     / Math.max(1, item.getInt("amount", 1));
             double sellPrice = unitPrice * 0.70;
 
+            int owned = Arrays.stream(player.getInventory().getStorageContents())
+                    .filter(s -> s != null && s.getType() == material)
+                    .mapToInt(ItemStack::getAmount).sum();
+
             ItemStack icon = new ItemStack(material);
             ItemMeta meta = icon.getItemMeta();
-            meta.setDisplayName(color("&f" + material.name()));
-            meta.setLore(List.of(
-                    color("&7You have: " +
-                            player.getInventory().all(material).values()
-                                    .stream().mapToInt(ItemStack::getAmount).sum()),
-                    color("&6Sell price each: $" +
-                            String.format(Locale.US, "%.2f", sellPrice)),
-                    color("&eClick to sell ALL of this item")));
-            icon.setItemMeta(meta);
+
+            if (meta != null) {
+                meta.setDisplayName(color("&f" + readableItemName(material)));
+                meta.setLore(List.of(
+                        color("&7You have: " + owned),
+                        color("&6Sell price each: $" +
+                                String.format(Locale.US, "%.2f", sellPrice)),
+                        color("&eClick to sell ALL of this item")));
+                icon.setItemMeta(meta);
+            }
 
             inv.setItem(slot, icon);
             slots.put(slot, material);
@@ -280,11 +391,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             if (slot >= 45) break;
         }
 
-        ItemStack back = new ItemStack(Material.ARROW);
-        ItemMeta meta = back.getItemMeta();
-        meta.setDisplayName(color("&cBack to Shop"));
-        back.setItemMeta(meta);
-        inv.setItem(49, back);
+        inv.setItem(49, makeItem(Material.ARROW, "&cBack to Shop",
+                List.of("&7Return to categories")));
 
         sellSlots.put(player.getUniqueId(), slots);
         currentCategory.remove(player.getUniqueId());
@@ -304,6 +412,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             for (String id : items.getKeys(false)) {
                 ConfigurationSection item =
                         items.getConfigurationSection(id);
+
                 if (item != null && material.name().equalsIgnoreCase(
                         item.getString("material", ""))) {
                     return item;
@@ -334,17 +443,20 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         } else {
             for (int i = 0; i < targets.size() && i < size; i++) {
                 Player target = targets.get(i);
-
                 ItemStack head = new ItemStack(Material.PLAYER_HEAD);
                 SkullMeta meta = (SkullMeta) head.getItemMeta();
-                meta.setOwningPlayer(target);
-                meta.setDisplayName(color("&e" + target.getName()));
-                meta.setLore(List.of(
-                        color("&7Active bounty: &6$" +
-                                money(bounties.getOrDefault(
-                                        target.getUniqueId(), 0.0))),
-                        color("&aClick to choose this player")));
-                head.setItemMeta(meta);
+
+                if (meta != null) {
+                    meta.setOwningPlayer(target);
+                    meta.setDisplayName(color("&e" + target.getName()));
+                    meta.setLore(List.of(
+                            color("&7Active bounty: &6$" +
+                                    money(bounties.getOrDefault(
+                                            target.getUniqueId(), 0.0))),
+                            color("&aClick to choose this player")));
+                    head.setItemMeta(meta);
+                }
+
                 inv.setItem(i, head);
             }
         }
@@ -356,7 +468,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         Player target = Bukkit.getPlayer(targetId);
 
         if (target == null) {
-            player.sendMessage(color("&cThat player is no longer online."));
+            msg(player, "&cThat player is no longer online.");
             openBountyTargets(player);
             return;
         }
@@ -382,46 +494,33 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         player.openInventory(inv);
     }
 
-    private ItemStack makeItem(Material material, String name, List<String> lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(color(name));
-
-        List<String> coloredLore = new ArrayList<>();
-        for (String line : lore) coloredLore.add(color(line));
-
-        meta.setLore(coloredLore);
-        item.setItemMeta(meta);
-        return item;
-    }
-
     private void placeBounty(Player poster, UUID targetId, double amount) {
         Player target = Bukkit.getPlayer(targetId);
 
         if (targetId.equals(poster.getUniqueId())) {
-            poster.sendMessage(color("&cYou cannot place a bounty on yourself."));
+            msg(poster, "&cYou cannot place a bounty on yourself.");
             return;
         }
 
         if (target == null) {
-            poster.sendMessage(color("&cThat player must be online to place a bounty."));
+            msg(poster, "&cThat player must be online to place a bounty.");
             return;
         }
 
         if (!Double.isFinite(amount) || amount < 1
                 || amount > 1_000_000_000_000.0) {
-            poster.sendMessage(color("&cEnter a valid amount of at least $1."));
+            msg(poster, "&cEnter a valid amount of at least $1.");
             return;
         }
 
         if (eco.getBalance(poster) < amount) {
-            poster.sendMessage(color("&cYou don't have enough money. Your balance is $"
-                    + money(eco.getBalance(poster)) + "."));
+            msg(poster, "&cYou don't have enough money. Your balance is $" +
+                    money(eco.getBalance(poster)) + ".");
             return;
         }
 
         if (!eco.withdrawPlayer(poster, amount).transactionSuccess()) {
-            poster.sendMessage(color("&cPayment failed; your bounty was not placed."));
+            msg(poster, "&cPayment failed; your bounty was not placed.");
             return;
         }
 
@@ -433,14 +532,12 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
         saveBounties();
 
-        poster.sendMessage(color("&aPlaced a $" + money(amount)
-                + " bounty on &e" + target.getName()
-                + "&a. Their total active bounty is &6$"
-                + money(bounties.get(id)) + "&a."));
+        msg(poster, "&aPlaced a $" + money(amount) + " bounty on &e" +
+                target.getName() + "&a. Their total active bounty is &6$" +
+                money(bounties.get(id)) + "&a.");
 
-        target.sendMessage(color("&cA bounty of $" + money(amount)
-                + " has been placed on you! Total: $"
-                + money(bounties.get(id)) + "."));
+        msg(target, "&cA bounty of $" + money(amount) +
+                " has been placed on you! Total: $" + money(bounties.get(id)) + ".");
     }
 
     private void showLeaderboard(CommandSender sender) {
@@ -450,21 +547,21 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 bounties.getOrDefault(b, 0.0),
                 bounties.getOrDefault(a, 0.0)));
 
-        sender.sendMessage(color("&8&m-----------------------------"));
-        sender.sendMessage(color("&6&lTop 10 Active Bounties"));
+        msg(sender, "&8&m-----------------------------");
+        msg(sender, "&6&lTop 10 Active Bounties");
 
         if (ids.isEmpty()) {
-            sender.sendMessage(color("&7There are no active bounties."));
+            msg(sender, "&7There are no active bounties.");
         } else {
             for (int i = 0; i < Math.min(10, ids.size()); i++) {
                 UUID id = ids.get(i);
                 String name = bountyNames.getOrDefault(id, "Unknown");
-                sender.sendMessage(color("&e#" + (i + 1) + " &f" + name
-                        + " &7- &6$" + money(bounties.get(id))));
+                msg(sender, "&e#" + (i + 1) + " &f" + name +
+                        " &7- &6$" + money(bounties.get(id)));
             }
         }
 
-        sender.sendMessage(color("&8&m-----------------------------"));
+        msg(sender, "&8&m-----------------------------");
     }
 
     // ==================== BOUNTY STORAGE ====================
@@ -497,7 +594,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                     try {
                         posters.add(UUID.fromString(poster));
                     } catch (IllegalArgumentException ignored) {
-                        // Ignore invalid poster UUID.
+                        // Ignore invalid poster UUIDs.
                     }
                 }
                 bountyPosters.put(targetId, posters);
@@ -537,13 +634,13 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
     }
 
-    // ==================== INVENTORY EVENTS ====================
+    // ==================== INVENTORY CLICKS ====================
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         String title = event.getView().getTitle();
-        String mainTitle = color(getConfig().getString(
-                "shop-title", "&a&lServer Shop"));
+        String mainTitle = formatTitle(getConfig().getString(
+                "shop-title", "<green><bold>Server Shop</bold></green>"));
 
         boolean bountyMenu = title.equals(bountyTargetTitle)
                 || title.equals(bountyAmountTitle);
@@ -559,8 +656,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
         int slot = event.getRawSlot();
-        if (slot < 0
-                || slot >= event.getView().getTopInventory().getSize()) return;
+        if (slot < 0 || slot >= event.getView().getTopInventory().getSize()) return;
 
         if (serverMenu) {
             if (menuPage1) {
@@ -569,19 +665,19 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 } else if (slot == 12) {
                     openBountyTargets(player);
                 } else if (slot == 14) {
-                    player.sendMessage(color("&6Auction Market is coming soon."));
+                    msg(player, "&6Auction Market is coming soon.");
                 } else if (slot == 16) {
-                    player.sendMessage(color("&dKits are coming soon."));
+                    msg(player, "&dKits are coming soon.");
                 } else if (slot == 53) {
                     openMenu(player, 2);
                 }
             } else {
                 if (slot == 10) {
-                    player.sendMessage(color("&bPlayer Warps are coming soon."));
+                    msg(player, "&bPlayer Warps are coming soon.");
                 } else if (slot == 12) {
-                    player.sendMessage(color("&aQuests are coming soon."));
+                    msg(player, "&aQuests are coming soon.");
                 } else if (slot == 14) {
-                    player.sendMessage(color("&dMore server features are coming soon."));
+                    msg(player, "&dMore server features are coming soon.");
                 } else if (slot == 45) {
                     openMenu(player, 1);
                 } else if (slot == 49) {
@@ -601,9 +697,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             String targetName = ChatColor.stripColor(meta.getDisplayName());
             Player target = Bukkit.getPlayerExact(targetName);
 
-            if (target == null
-                    || target.getUniqueId().equals(player.getUniqueId())) {
-                player.sendMessage(color("&cThat player is no longer available."));
+            if (target == null || target.getUniqueId().equals(player.getUniqueId())) {
+                msg(player, "&cThat player is no longer available.");
                 openBountyTargets(player);
                 return;
             }
@@ -616,7 +711,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             UUID targetId = selectedTargets.get(player.getUniqueId());
 
             if (targetId == null) {
-                player.sendMessage(color("&cPlease choose a target first."));
+                msg(player, "&cPlease choose a target first.");
                 openBountyTargets(player);
                 return;
             }
@@ -635,8 +730,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             } else if (slot == 16) {
                 awaitingCustomAmount.add(player.getUniqueId());
                 player.closeInventory();
-                player.sendMessage(color("&bType your custom bounty amount in chat (numbers only)."));
-                player.sendMessage(color("&7Type &ccancel &7to stop."));
+                msg(player, "&bType your custom bounty amount in chat (numbers only).");
+                msg(player, "&7Type &ccancel &7to stop.");
             }
             return;
         }
@@ -677,8 +772,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             if (key == null) return;
 
             ConfigurationSection items =
-                    getConfig().getConfigurationSection(
-                            "categories." + key + ".items");
+                    getConfig().getConfigurationSection("categories." + key + ".items");
             if (items == null) return;
 
             for (String id : items.getKeys(false)) {
@@ -693,37 +787,49 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 double price = item.getDouble("price");
 
                 if (!Double.isFinite(price) || price < 0) {
-                    player.sendMessage(color("&cThis item has an invalid price."));
+                    msg(player, "&cThis item has an invalid price.");
                     return;
                 }
 
                 if (eco.getBalance(player) < price) {
-                    player.sendMessage(color("&cNot enough money!"));
+                    msg(player, "&cNot enough money!");
                     return;
                 }
 
-                if (player.getInventory().firstEmpty() == -1) {
-                    player.sendMessage(color("&cYour inventory is full!"));
+                ItemStack purchase = new ItemStack(material, amount);
+                Map<Integer, ItemStack> leftovers =
+                        player.getInventory().addItem(purchase);
+
+                if (!leftovers.isEmpty()) {
+                    // Remove any partially inserted items before refunding.
+                    for (ItemStack leftover : leftovers.values()) {
+                        int remaining = leftover.getAmount();
+                        for (int i = 0; i < player.getInventory().getStorageContents().length
+                                && remaining > 0; i++) {
+                            ItemStack content = player.getInventory().getItem(i);
+                            if (content != null && content.isSimilar(leftover)) {
+                                int take = Math.min(remaining, content.getAmount());
+                                content.setAmount(content.getAmount() - take);
+                                if (content.getAmount() <= 0) {
+                                    player.getInventory().setItem(i, null);
+                                }
+                                remaining -= take;
+                            }
+                        }
+                    }
+                    msg(player, "&cYour inventory is full!");
                     return;
                 }
 
                 if (!eco.withdrawPlayer(player, price).transactionSuccess()) {
-                    player.sendMessage(color("&cPayment failed."));
+                    player.getInventory().removeItemAnySlot(purchase);
+                    msg(player, "&cPayment failed. You were not charged.");
                     return;
                 }
 
-                Map<Integer, ItemStack> leftovers =
-                        player.getInventory().addItem(new ItemStack(material, amount));
-
-                if (!leftovers.isEmpty()) {
-                    eco.depositPlayer(player, price);
-                    player.sendMessage(color(
-                            "&cPurchase cancelled because your inventory is full; money refunded."));
-                    return;
-                }
-
-                player.sendMessage(color("&aBought " + amount + " "
-                        + material.name() + " for $" + money(price)));
+                msg(player, "&aBought " + amount + " " +
+                        configuredItemName(item, material) +
+                        " for $" + money(price));
                 return;
             }
             return;
@@ -737,15 +843,12 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             ConfigurationSection item = findItem(material);
             if (item == null) return;
 
-            int amount = 0;
-            for (ItemStack stack : player.getInventory().getStorageContents()) {
-                if (stack != null && stack.getType() == material) {
-                    amount += stack.getAmount();
-                }
-            }
+            int amount = Arrays.stream(player.getInventory().getStorageContents())
+                    .filter(stack -> stack != null && stack.getType() == material)
+                    .mapToInt(ItemStack::getAmount).sum();
 
             if (amount <= 0) {
-                player.sendMessage(color("&cYou don't have that item."));
+                msg(player, "&cYou don't have that item.");
                 openSell(player);
                 return;
             }
@@ -761,15 +864,19 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 }
             }
 
-            eco.depositPlayer(player, total);
-            player.sendMessage(color("&aSold " + amount + " "
-                    + material.name() + " for $"
-                    + String.format(Locale.US, "%.2f", total)));
+            if (!eco.depositPlayer(player, total).transactionSuccess()) {
+                msg(player, "&cPayment failed. Contact a server administrator.");
+                openSell(player);
+                return;
+            }
+
+            msg(player, "&aSold " + amount + " " + readableItemName(material) +
+                    " for $" + String.format(Locale.US, "%.2f", total));
             openSell(player);
         }
     }
 
-    // ==================== CUSTOM AMOUNT CHAT ====================
+    // ==================== CUSTOM BOUNTY AMOUNT CHAT ====================
 
     @EventHandler
     public void onCustomAmountChat(AsyncPlayerChatEvent event) {
@@ -788,7 +895,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
             if (message.equalsIgnoreCase("cancel")) {
                 awaitingCustomAmount.remove(playerId);
-                player.sendMessage(color("&7Custom bounty cancelled."));
+                msg(player, "&7Custom bounty cancelled.");
                 return;
             }
 
@@ -797,8 +904,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 amount = Double.parseDouble(
                         message.replace("$", "").replace(",", ""));
             } catch (NumberFormatException ex) {
-                player.sendMessage(color(
-                        "&cInvalid amount. Enter a number, or type cancel."));
+                msg(player, "&cInvalid amount. Enter a number, or type cancel.");
                 return;
             }
 
@@ -806,7 +912,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             awaitingCustomAmount.remove(playerId);
 
             if (targetId == null) {
-                player.sendMessage(color("&cNo target selected. Use /bounty to try again."));
+                msg(player, "&cNo target selected. Use /bounty to try again.");
                 return;
             }
 
@@ -825,10 +931,9 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
         if (amount <= 0 || killer == null) return;
 
-        // A contributor cannot claim the bounty they helped fund.
         if (bountyPosters.getOrDefault(targetId, Collections.emptySet())
                 .contains(killer.getUniqueId())) {
-            killer.sendMessage(color("&cYou cannot claim a bounty you contributed to."));
+            msg(killer, "&cYou cannot claim a bounty you contributed to.");
             return;
         }
 
@@ -838,14 +943,12 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             bountyPosters.remove(targetId);
             saveBounties();
 
-            killer.sendMessage(color("&aBounty claimed! You received &6$"
-                    + money(amount) + "&a for killing &e"
-                    + victim.getName() + "&a."));
+            msg(killer, "&aBounty claimed! You received &6$" +
+                    money(amount) + "&a for killing &e" + victim.getName() + "&a.");
 
-            Bukkit.broadcastMessage(color("&6&lBOUNTY CLAIMED! &e"
-                    + killer.getName() + " &7claimed &6$"
-                    + money(amount) + " &7for killing &c"
-                    + victim.getName() + "&7."));
+            broadcast("&6&lBOUNTY CLAIMED! &e" + killer.getName() +
+                    " &7claimed &6$" + money(amount) + " &7for killing &c" +
+                    victim.getName() + "&7.");
         }
     }
 
@@ -856,15 +959,5 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         selectedTargets.remove(id);
         currentCategory.remove(id);
         sellSlots.remove(id);
-    }
-
-    private String money(double amount) {
-        return String.format(Locale.US, "%,.2f", amount)
-                .replaceAll("\\.00$", "");
-    }
-
-    private String color(String text) {
-        return ChatColor.translateAlternateColorCodes('&',
-                text == null ? "" : text);
     }
 }
