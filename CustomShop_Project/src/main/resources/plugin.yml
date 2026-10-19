@@ -1,28 +1,38 @@
+
 name: CustomShop
 main: com.customshop.CustomShopPlugin
-version: 1.0.0
+version: 2.0.0
 api-version: '1.21'
 depend: [Vault]
 
 commands:
   shop:
-    description: Opens the custom shop.
+    description: Opens the server shop.
+    usage: /shop
     permission: customshop.use
-  bounty:
-    description: Opens the bounty menu.
-    permission: customshop.use
-    usage: /bounty
-  bounties:
-    description: Shows the top 10 active bounties.
-    permission: customshop.use
-    usage: /bounties
+
   menu:
-    description: Opens the server menu.
-    aliases: [hub]
-    permission: customshop.use
+    description: Opens the Site Chaos server menu.
     usage: /menu
+    permission: customshop.use
+
+  bounty:
+    description: Place, view, and manage bounties.
+    usage: /bounty help
+    permission: customshop.use
+
+  bounties:
+    description: Shows the top active bounties.
+    usage: /bounties
+    permission: customshop.use
+
+  ah:
+    description: Opens and manages the auction house.
+    aliases: [auction, auctionhouse]
+    usage: /ah help
+    permission: customshop.use
 
 permissions:
   customshop.use:
-    description: Allows use of the shop, bounty and menu commands.
+    description: Allows access to the shop, menu, bounty, and auction commands.
     default: true
