@@ -26,4 +26,3 @@ permissions:
   customshop.use:
     description: Allows use of the shop, bounty and menu commands.
     default: true
-```
