@@ -1,3 +1,4 @@
+```yaml
 name: CustomShop
 main: com.customshop.CustomShopPlugin
 version: 1.0.0
@@ -17,10 +18,13 @@ commands:
     permission: customshop.use
     usage: /bounties
   menu:
-    description: Opens the server menu
-    aliases: [hub]  
+    description: Opens the server menu.
+    aliases: [hub]
+    permission: customshop.use
+    usage: /menu
 
 permissions:
   customshop.use:
-    description: Allows use of the shop and bounty commands.
+    description: Allows use of the shop, bounty and menu commands.
     default: true
+```
