@@ -16,6 +16,9 @@ commands:
     description: Shows the top 10 active bounties.
     permission: customshop.use
     usage: /bounties
+  menu:
+    description: Opens the server menu
+    aliases: [hub]  
 
 permissions:
   customshop.use:
