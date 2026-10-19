@@ -1,346 +1,465 @@
-
 shop-title: '&a&lSite Chaos Shop'
 size: 36
 
 categories:
-  wood:
-    material: OAK_LOG
-    name: '&6&lWood'
-    slot: 10
-    items:
-      oak_log:
-        material: OAK_LOG
-        name: '&fOak Log'
-        amount: 1
-        price: 10
-        slot: 0
-      spruce_log:
-        material: SPRUCE_LOG
-        name: '&fSpruce Log'
-        amount: 1
-        price: 10
-        slot: 1
-      birch_log:
-        material: BIRCH_LOG
-        name: '&fBirch Log'
-        amount: 1
-        price: 10
-        slot: 2
-      jungle_log:
-        material: JUNGLE_LOG
-        name: '&fJungle Log'
-        amount: 1
-        price: 10
-        slot: 3
-      acacia_log:
-        material: ACACIA_LOG
-        name: '&fAcacia Log'
-        amount: 1
-        price: 10
-        slot: 4
-      dark_oak_log:
-        material: DARK_OAK_LOG
-        name: '&fDark Oak Log'
-        amount: 1
-        price: 10
-        slot: 5
-      mangrove_log:
-        material: MANGROVE_LOG
-        name: '&fMangrove Log'
-        amount: 1
-        price: 10
-        slot: 6
-      cherry_log:
-        material: CHERRY_LOG
-        name: '&fCherry Log'
-        amount: 1
-        price: 10
-        slot: 7
-      pale_oak_log:
-        material: PALE_OAK_LOG
-        name: '&fPale Oak Log'
-        amount: 1
-        price: 10
-        slot: 8
-
-  weapons:
-    material: IRON_SWORD
-    name: '&c&lWeapons'
-    slot: 12
-    items:
-      iron_sword:
-        material: IRON_SWORD
-        name: '&fIron Sword'
-        amount: 1
-        price: 100
-        slot: 0
-      diamond_sword:
-        material: DIAMOND_SWORD
-        name: '&bDiamond Sword'
-        amount: 1
-        price: 500
-        slot: 1
-      bow:
-        material: BOW
-        name: '&fBow'
-        amount: 1
-        price: 150
-        slot: 2
-      crossbow:
-        material: CROSSBOW
-        name: '&fCrossbow'
-        amount: 1
-        price: 200
-        slot: 3
-      trident:
-        material: TRIDENT
-        name: '&bTrident'
-        amount: 1
-        price: 750
-        slot: 4
-
   ores:
     material: DIAMOND
     name: '&b&lOres & Minerals'
-    slot: 14
+    slot: 10
     items:
       coal:
         material: COAL
-        name: '&8Coal'
-        amount: 1
-        price: 5
+        name: '&8Coal x16'
+        amount: 16
+        price: 120
         slot: 0
       raw_iron:
         material: RAW_IRON
-        name: '&fRaw Iron'
-        amount: 1
-        price: 12
+        name: '&fRaw Iron x8'
+        amount: 8
+        price: 180
         slot: 1
       iron_ingot:
         material: IRON_INGOT
-        name: '&fIron Ingot'
-        amount: 1
-        price: 20
+        name: '&fIron Ingot x8'
+        amount: 8
+        price: 240
         slot: 2
+      copper_ingot:
+        material: COPPER_INGOT
+        name: '&6Copper Ingot x16'
+        amount: 16
+        price: 180
+        slot: 3
+      redstone:
+        material: REDSTONE
+        name: '&cRedstone x16'
+        amount: 16
+        price: 200
+        slot: 4
+      lapis_lazuli:
+        material: LAPIS_LAZULI
+        name: '&9Lapis Lazuli x16'
+        amount: 16
+        price: 220
+        slot: 5
       gold_ingot:
         material: GOLD_INGOT
-        name: '&6Gold Ingot'
-        amount: 1
-        price: 30
-        slot: 3
-      diamond:
-        material: DIAMOND
-        name: '&bDiamond'
-        amount: 1
-        price: 100
-        slot: 4
+        name: '&6Gold Ingot x4'
+        amount: 4
+        price: 200
+        slot: 6
       emerald:
         material: EMERALD
         name: '&aEmerald'
         amount: 1
-        price: 80
-        slot: 5
-      lapis_lazuli:
-        material: LAPIS_LAZULI
-        name: '&9Lapis Lazuli'
-        amount: 1
-        price: 8
-        slot: 6
-      redstone:
-        material: REDSTONE
-        name: '&cRedstone'
-        amount: 1
-        price: 6
+        price: 250
         slot: 7
-
-  tools:
-    material: IRON_PICKAXE
-    name: '&e&lTools'
-    slot: 16
-    items:
-      iron_pickaxe:
-        material: IRON_PICKAXE
-        name: '&fIron Pickaxe'
+      diamond:
+        material: DIAMOND
+        name: '&bDiamond'
         amount: 1
-        price: 100
-        slot: 0
-      diamond_pickaxe:
-        material: DIAMOND_PICKAXE
-        name: '&bDiamond Pickaxe'
-        amount: 1
-        price: 500
-        slot: 1
-      iron_axe:
-        material: IRON_AXE
-        name: '&fIron Axe'
-        amount: 1
-        price: 100
-        slot: 2
-      iron_shovel:
-        material: IRON_SHOVEL
-        name: '&fIron Shovel'
-        amount: 1
-        price: 60
-        slot: 3
-      iron_hoe:
-        material: IRON_HOE
-        name: '&fIron Hoe'
-        amount: 1
-        price: 60
-        slot: 4
-      shears:
-        material: SHEARS
-        name: '&fShears'
-        amount: 1
-        price: 50
-        slot: 5
+        price: 1500
+        slot: 8
 
   food:
-    material: BREAD
-    name: '&6&lFood'
-    slot: 19
+    material: COOKED_BEEF
+    name: '&6&lFood & Farming'
+    slot: 12
     items:
       bread:
         material: BREAD
-        name: '&fBread'
-        amount: 1
-        price: 8
+        name: '&fBread x16'
+        amount: 16
+        price: 100
         slot: 0
       cooked_beef:
         material: COOKED_BEEF
-        name: '&6Cooked Beef'
-        amount: 1
-        price: 15
+        name: '&6Cooked Beef x16'
+        amount: 16
+        price: 220
         slot: 1
-      cooked_chicken:
-        material: COOKED_CHICKEN
-        name: '&fCooked Chicken'
-        amount: 1
-        price: 12
+      baked_potato:
+        material: BAKED_POTATO
+        name: '&eBaked Potato x16'
+        amount: 16
+        price: 120
         slot: 2
-      golden_carrot:
-        material: GOLDEN_CARROT
-        name: '&6Golden Carrot'
-        amount: 1
-        price: 25
+      carrot:
+        material: CARROT
+        name: '&6Carrot x16'
+        amount: 16
+        price: 80
         slot: 3
-      apple:
-        material: APPLE
-        name: '&cApple'
-        amount: 1
-        price: 5
+      potato:
+        material: POTATO
+        name: '&ePotato x16'
+        amount: 16
+        price: 80
         slot: 4
+      wheat:
+        material: WHEAT
+        name: '&eWheat x16'
+        amount: 16
+        price: 100
+        slot: 5
+      bone_meal:
+        material: BONE_MEAL
+        name: '&fBone Meal x16'
+        amount: 16
+        price: 120
+        slot: 6
+      sugar_cane:
+        material: SUGAR_CANE
+        name: '&aSugar Cane x16'
+        amount: 16
+        price: 100
+        slot: 7
+      pumpkin:
+        material: PUMPKIN
+        name: '&6Pumpkin x8'
+        amount: 8
+        price: 120
+        slot: 8
+      melon_slice:
+        material: MELON_SLICE
+        name: '&aMelon Slice x16'
+        amount: 16
+        price: 100
+        slot: 9
 
   building:
     material: BRICKS
     name: '&6&lBuilding Blocks'
-    slot: 21
+    slot: 14
     items:
-      stone:
-        material: STONE
-        name: '&7Stone'
-        amount: 1
-        price: 3
+      oak_planks:
+        material: OAK_PLANKS
+        name: '&6Oak Planks x32'
+        amount: 32
+        price: 100
         slot: 0
+      spruce_planks:
+        material: SPRUCE_PLANKS
+        name: '&6Spruce Planks x32'
+        amount: 32
+        price: 100
+        slot: 1
       cobblestone:
         material: COBBLESTONE
-        name: '&7Cobblestone'
-        amount: 1
-        price: 2
-        slot: 1
+        name: '&7Cobblestone x32'
+        amount: 32
+        price: 80
+        slot: 2
+      stone_bricks:
+        material: STONE_BRICKS
+        name: '&7Stone Bricks x32'
+        amount: 32
+        price: 180
+        slot: 3
       glass:
         material: GLASS
-        name: '&fGlass'
-        amount: 1
-        price: 5
-        slot: 2
+        name: '&fGlass x16'
+        amount: 16
+        price: 120
+        slot: 4
       bricks:
         material: BRICKS
-        name: '&cBricks'
-        amount: 1
-        price: 8
-        slot: 3
+        name: '&cBricks x16'
+        amount: 16
+        price: 200
+        slot: 5
+      sand:
+        material: SAND
+        name: '&eSand x32'
+        amount: 32
+        price: 120
+        slot: 6
+      gravel:
+        material: GRAVEL
+        name: '&7Gravel x32'
+        amount: 32
+        price: 100
+        slot: 7
+      terracotta:
+        material: TERRACOTTA
+        name: '&6Terracotta x16'
+        amount: 16
+        price: 180
+        slot: 8
       obsidian:
         material: OBSIDIAN
-        name: '&5Obsidian'
-        amount: 1
-        price: 50
-        slot: 4
+        name: '&5Obsidian x4'
+        amount: 4
+        price: 500
+        slot: 9
 
-  farming:
-    material: WHEAT
-    name: '&a&lFarming'
-    slot: 23
+  tools_combat:
+    material: IRON_PICKAXE
+    name: '&e&lTools & Combat'
+    slot: 16
     items:
-      wheat:
-        material: WHEAT
-        name: '&eWheat'
+      stone_pickaxe:
+        material: STONE_PICKAXE
+        name: '&7Stone Pickaxe'
         amount: 1
-        price: 5
+        price: 100
         slot: 0
-      carrot:
-        material: CARROT
-        name: '&6Carrot'
+      iron_pickaxe:
+        material: IRON_PICKAXE
+        name: '&fIron Pickaxe'
         amount: 1
-        price: 5
+        price: 350
         slot: 1
-      potato:
-        material: POTATO
-        name: '&ePotato'
+      iron_sword:
+        material: IRON_SWORD
+        name: '&fIron Sword'
         amount: 1
-        price: 5
+        price: 300
         slot: 2
-      pumpkin:
-        material: PUMPKIN
-        name: '&6Pumpkin'
+      iron_axe:
+        material: IRON_AXE
+        name: '&fIron Axe'
         amount: 1
-        price: 10
+        price: 300
         slot: 3
-      melon:
-        material: MELON
-        name: '&aMelon'
+      shield:
+        material: SHIELD
+        name: '&fShield'
         amount: 1
-        price: 8
+        price: 250
         slot: 4
-
-  armor:
-    material: IRON_CHESTPLATE
-    name: '&7&lArmor'
-    slot: 25
-    items:
+      bow:
+        material: BOW
+        name: '&fBow'
+        amount: 1
+        price: 300
+        slot: 5
+      arrow:
+        material: ARROW
+        name: '&fArrows x16'
+        amount: 16
+        price: 120
+        slot: 6
       iron_helmet:
         material: IRON_HELMET
         name: '&fIron Helmet'
         amount: 1
-        price: 100
-        slot: 0
+        price: 300
+        slot: 7
       iron_chestplate:
         material: IRON_CHESTPLATE
         name: '&fIron Chestplate'
         amount: 1
-        price: 160
-        slot: 1
+        price: 650
+        slot: 8
       iron_leggings:
         material: IRON_LEGGINGS
         name: '&fIron Leggings'
         amount: 1
-        price: 140
-        slot: 2
+        price: 500
+        slot: 9
       iron_boots:
         material: IRON_BOOTS
         name: '&fIron Boots'
         amount: 1
+        price: 250
+        slot: 10
+
+  utility:
+    material: COMPASS
+    name: '&b&lExploration & Utility'
+    slot: 19
+    items:
+      torch:
+        material: TORCH
+        name: '&eTorches x32'
+        amount: 32
+        price: 100
+        slot: 0
+      ladder:
+        material: LADDER
+        name: '&6Ladders x16'
+        amount: 16
+        price: 100
+        slot: 1
+      bucket:
+        material: BUCKET
+        name: '&fBucket'
+        amount: 1
+        price: 150
+        slot: 2
+      water_bucket:
+        material: WATER_BUCKET
+        name: '&bWater Bucket'
+        amount: 1
+        price: 250
+        slot: 3
+      compass:
+        material: COMPASS
+        name: '&bCompass'
+        amount: 1
+        price: 200
+        slot: 4
+      clock:
+        material: CLOCK
+        name: '&6Clock'
+        amount: 1
+        price: 200
+        slot: 5
+      fishing_rod:
+        material: FISHING_ROD
+        name: '&fFishing Rod'
+        amount: 1
+        price: 180
+        slot: 6
+      lead:
+        material: LEAD
+        name: '&fLeads x2'
+        amount: 2
+        price: 150
+        slot: 7
+      saddle:
+        material: SADDLE
+        name: '&6Saddle'
+        amount: 1
+        price: 900
+        slot: 8
+      name_tag:
+        material: NAME_TAG
+        name: '&eName Tag'
+        amount: 1
+        price: 700
+        slot: 9
+
+  mob_drops:
+    material: BONE
+    name: '&f&lMob Drops & Materials'
+    slot: 21
+    items:
+      bone:
+        material: BONE
+        name: '&fBones x16'
+        amount: 16
+        price: 120
+        slot: 0
+      string:
+        material: STRING
+        name: '&fString x16'
+        amount: 16
+        price: 180
+        slot: 1
+      gunpowder:
+        material: GUNPOWDER
+        name: '&7Gunpowder x8'
+        amount: 8
+        price: 220
+        slot: 2
+      rotten_flesh:
+        material: ROTTEN_FLESH
+        name: '&8Rotten Flesh x16'
+        amount: 16
         price: 80
         slot: 3
-      diamond_helmet:
-        material: DIAMOND_HELMET
-        name: '&bDiamond Helmet'
+      spider_eye:
+        material: SPIDER_EYE
+        name: '&5Spider Eyes x8'
+        amount: 8
+        price: 120
+        slot: 4
+      slimeball:
+        material: SLIME_BALL
+        name: '&aSlimeballs x4'
+        amount: 4
+        price: 250
+        slot: 5
+      leather:
+        material: LEATHER
+        name: '&6Leather x8'
+        amount: 8
+        price: 180
+        slot: 6
+      feather:
+        material: FEATHER
+        name: '&fFeathers x16'
+        amount: 16
+        price: 120
+        slot: 7
+      ender_pearl:
+        material: ENDER_PEARL
+        name: '&5Ender Pearl'
         amount: 1
         price: 500
-        slot: 4
-      diamond_chestplate:
-        material: DIAMOND_CHESTPLATE
-        name: '&bDiamond Chestplate'
+        slot: 8
+      blaze_rod:
+        material: BLAZE_ROD
+        name: '&6Blaze Rod'
         amount: 1
-        price: 800
+        price: 900
+        slot: 9
+
+  nature:
+    material: OAK_SAPLING
+    name: '&a&lNature & Farming Supplies'
+    slot: 23
+    items:
+      oak_sapling:
+        material: OAK_SAPLING
+        name: '&aOak Saplings x8'
+        amount: 8
+        price: 80
+        slot: 0
+      spruce_sapling:
+        material: SPRUCE_SAPLING
+        name: '&aSpruce Saplings x8'
+        amount: 8
+        price: 80
+        slot: 1
+      wheat_seeds:
+        material: WHEAT_SEEDS
+        name: '&eWheat Seeds x32'
+        amount: 32
+        price: 80
+        slot: 2
+      beetroot_seeds:
+        material: BEETROOT_SEEDS
+        name: '&cBeetroot Seeds x16'
+        amount: 16
+        price: 80
+        slot: 3
+      cactus:
+        material: CACTUS
+        name: '&aCactus x8'
+        amount: 8
+        price: 120
+        slot: 4
+      bamboo:
+        material: BAMBOO
+        name: '&aBamboo x16'
+        amount: 16
+        price: 100
         slot: 5
+      dandelion:
+        material: DANDELION
+        name: '&eDandelions x8'
+        amount: 8
+        price: 100
+        slot: 6
+      vines:
+        material: VINE
+        name: '&2Vines x8'
+        amount: 8
+        price: 120
+        slot: 7
+      lily_pad:
+        material: LILY_PAD
+        name: '&aLily Pads x8'
+        amount: 8
+        price: 150
+        slot: 8
+      sea_lantern:
+        material: SEA_LANTERN
+        name: '&bSea Lanterns x4'
+        amount: 4
+        price: 400
+        slot: 9
