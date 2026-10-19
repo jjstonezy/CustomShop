@@ -1,4 +1,3 @@
-```yaml
 name: CustomShop
 main: com.customshop.CustomShopPlugin
 version: 1.0.0
