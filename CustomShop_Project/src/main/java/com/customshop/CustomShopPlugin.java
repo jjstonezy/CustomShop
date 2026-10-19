@@ -49,6 +49,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final String sellTitle = color("&c&lSell Items");
     private final String bountyTargetTitle = color("&8&lChoose Bounty Target");
     private final String bountyAmountTitle = color("&8&lChoose Bounty Amount");
+    private final String menuTitle1 = color("&8&lSite Chaos Menu &7(Page 1/2)");
+    private final String menuTitle2 = color("&8&lSite Chaos Menu &7(Page 2/2)");
 
     @Override
     public void onEnable() {
@@ -68,6 +70,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         Objects.requireNonNull(getCommand("shop")).setExecutor(this);
         Objects.requireNonNull(getCommand("bounty")).setExecutor(this);
         Objects.requireNonNull(getCommand("bounties")).setExecutor(this);
+        Objects.requireNonNull(getCommand("menu"), "menu command missing from plugin.yml").setExecutor(this);
 
         bountyFile = new File(getDataFolder(), "bounties.yml");
         loadBounties();
@@ -94,7 +97,9 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             return true;
         }
 
-        if (command.getName().equalsIgnoreCase("bounty")) {
+        if (command.getName().equalsIgnoreCase("menu")) {
+            openMenu(player, 1);
+        } else if (command.getName().equalsIgnoreCase("bounty")) {
             openBountyTargets(player);
         } else {
             openMain(player);
@@ -146,6 +151,42 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 color("&eYou receive 70% of the buy price")));
         sell.setItemMeta(sellMeta);
         inv.setItem(inv.getSize() - 1, sell);
+
+        currentCategory.remove(player.getUniqueId());
+        sellSlots.remove(player.getUniqueId());
+        player.openInventory(inv);
+    }
+
+    // ==================== SERVER MENU ====================
+
+    private void openMenu(Player player, int page) {
+        int safePage = page == 2 ? 2 : 1;
+        String title = safePage == 1 ? menuTitle1 : menuTitle2;
+        Inventory inv = Bukkit.createInventory(null, 54, title);
+
+        if (safePage == 1) {
+            inv.setItem(10, makeItem(Material.CHEST, "&a&lShop",
+                    List.of("&7Browse the server shop", "&eClick to open")));
+            inv.setItem(12, makeItem(Material.PLAYER_HEAD, "&c&lBounty Board",
+                    List.of("&7Place bounties on online players", "&7View and claim bounties", "&eClick to open")));
+            inv.setItem(14, makeItem(Material.EMERALD, "&6&lAuction Market",
+                    List.of("&7Player-to-player item trading", "&eComing soon")));
+            inv.setItem(16, makeItem(Material.ENCHANTED_BOOK, "&d&lKits",
+                    List.of("&7Claim server kits", "&eComing soon")));
+            inv.setItem(53, makeItem(Material.ARROW, "&eNext Page &7(2/2)",
+                    List.of("&7Click to view more features")));
+        } else {
+            inv.setItem(10, makeItem(Material.COMPASS, "&b&lPlayer Warps",
+                    List.of("&7Visit player-created warps", "&eComing soon")));
+            inv.setItem(12, makeItem(Material.BOOK, "&a&lQuests",
+                    List.of("&7View server quests", "&eComing soon")));
+            inv.setItem(14, makeItem(Material.NETHER_STAR, "&d&lMore Features",
+                    List.of("&7More server features will appear here", "&eComing soon")));
+            inv.setItem(45, makeItem(Material.ARROW, "&ePrevious Page &7(1/2)",
+                    List.of("&7Return to the first page")));
+            inv.setItem(49, makeItem(Material.BARRIER, "&c&lClose Menu",
+                    List.of("&7Click to close this menu")));
+        }
 
         currentCategory.remove(player.getUniqueId());
         sellSlots.remove(player.getUniqueId());
@@ -506,9 +547,12 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
         boolean bountyMenu = title.equals(bountyTargetTitle)
                 || title.equals(bountyAmountTitle);
+        boolean menuPage1 = title.equals(menuTitle1);
+        boolean menuPage2 = title.equals(menuTitle2);
+        boolean serverMenu = menuPage1 || menuPage2;
 
         if (!title.equals(mainTitle) && !title.equals(categoryTitle)
-                && !title.equals(sellTitle) && !bountyMenu) return;
+                && !title.equals(sellTitle) && !bountyMenu && !serverMenu) return;
 
         event.setCancelled(true);
 
@@ -517,6 +561,35 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         int slot = event.getRawSlot();
         if (slot < 0
                 || slot >= event.getView().getTopInventory().getSize()) return;
+
+        if (serverMenu) {
+            if (menuPage1) {
+                if (slot == 10) {
+                    openMain(player);
+                } else if (slot == 12) {
+                    openBountyTargets(player);
+                } else if (slot == 14) {
+                    player.sendMessage(color("&6Auction Market is coming soon."));
+                } else if (slot == 16) {
+                    player.sendMessage(color("&dKits are coming soon."));
+                } else if (slot == 53) {
+                    openMenu(player, 2);
+                }
+            } else {
+                if (slot == 10) {
+                    player.sendMessage(color("&bPlayer Warps are coming soon."));
+                } else if (slot == 12) {
+                    player.sendMessage(color("&aQuests are coming soon."));
+                } else if (slot == 14) {
+                    player.sendMessage(color("&dMore server features are coming soon."));
+                } else if (slot == 45) {
+                    openMenu(player, 1);
+                } else if (slot == 49) {
+                    player.closeInventory();
+                }
+            }
+            return;
+        }
 
         if (title.equals(bountyTargetTitle)) {
             ItemStack clicked = event.getCurrentItem();
