@@ -540,29 +540,33 @@ public class CustomShopPlugin extends JavaPlugin
                 " has been placed on you! Total: $" + money(bounties.get(id)) + ".");
     }
 
-    private void showLeaderboard(CommandSender sender) {
-        List<UUID> ids = new ArrayList<>(bounties.keySet());
-        ids.removeIf(id -> bounties.getOrDefault(id, 0.0) <= 0);
-        ids.sort((a, b) -> Double.compare(
-                bounties.getOrDefault(b, 0.0),
-                bounties.getOrDefault(a, 0.0)));
 
-        msg(sender, "&8&m-----------------------------");
-        msg(sender, "&6&lTop 10 Active Bounties");
+private void showLeaderboard(CommandSender sender) {
+    List<UUID> ids = new ArrayList<>(bounties.keySet());
+    ids.removeIf(id -> bounties.getOrDefault(id, 0.0) <= 0);
+    ids.sort((a, b) -> Double.compare(
+            bounties.getOrDefault(b, 0.0),
+            bounties.getOrDefault(a, 0.0)));
 
-        if (ids.isEmpty()) {
-            msg(sender, "&7There are no active bounties.");
-        } else {
-            for (int i = 0; i < Math.min(10, ids.size()); i++) {
-                UUID id = ids.get(i);
-                String name = bountyNames.getOrDefault(id, "Unknown");
-                msg(sender, "&e#" + (i + 1) + " &f" + name +
-                        " &7- &6$" + money(bounties.get(id)));
-            }
+    // Prefix appears only once, on the leaderboard heading.
+    sender.sendMessage(color("&8&m-----------------------------"));
+    msg(sender, "&6&lTop 10 Active Bounties");
+
+    if (ids.isEmpty()) {
+        sender.sendMessage(color("&7There are no active bounties."));
+    } else {
+        for (int i = 0; i < Math.min(10, ids.size()); i++) {
+            UUID id = ids.get(i);
+            String name = bountyNames.getOrDefault(id, "Unknown");
+
+            sender.sendMessage(color("&e#" + (i + 1) + " &f" + name
+                    + " &7- &6$" + money(bounties.get(id))));
         }
-
-        msg(sender, "&8&m-----------------------------");
     }
+
+    sender.sendMessage(color("&8&m-----------------------------"));
+}
+
 
     // ==================== BOUNTY STORAGE ====================
 
