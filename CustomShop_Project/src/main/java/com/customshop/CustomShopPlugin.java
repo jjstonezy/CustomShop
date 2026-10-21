@@ -403,7 +403,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     boolean shopUnlocked = levelsAvailable && level >= 10;
     boolean auctionUnlocked = levelsAvailable && level >= 20;
 
-    inv.setItem(2, makeItem(
+    inv.setItem(11, makeItem(
             shopUnlocked ? Material.CHEST : Material.BARRIER,
             shopUnlocked ? "&a&lShop" : "&c&lShop &7(&cLocked&7)",
             shopUnlocked
@@ -412,13 +412,13 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                               "&7Your level: " + (levelsAvailable ? level : "Unavailable"))
     ));
 
-    inv.setItem(3, makeItem(
+    inv.setItem(12, makeItem(
             Material.PLAYER_HEAD,
             "&c&lBounty Board",
             List.of("&7Place and view bounties", "&eClick to open")
     ));
 
-    inv.setItem(4, makeItem(
+    inv.setItem(13, makeItem(
             auctionUnlocked ? Material.GOLD_INGOT : Material.BARRIER,
             auctionUnlocked ? "&6&lAuction Market" : "&6&lAuction Market &7(&cLocked&7)",
             auctionUnlocked
@@ -427,13 +427,13 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                               "&7Your level: " + (levelsAvailable ? level : "Unavailable"))
     ));
 
-    inv.setItem(5, makeItem(
+    inv.setItem(14, makeItem(
             Material.GOLDEN_APPLE,
             "&b&lLeaderboards",
             List.of("&7See the server's top players", "&eClick to view")
     ));
 
-    inv.setItem(8, makeItem(
+    inv.setItem(17, makeItem(
             Material.BARRIER,
             "&c&lClose",
             List.of("&7Close this menu")
@@ -1092,15 +1092,15 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
 
 if (serverMenu) {
-    if (slot == 2) {
+    if (slot == 11) {
         if (hasRequiredLevel(player, 10, "/shop")) openMain(player);
-    } else if (slot == 3) {
+    } else if (slot == 12) {
         openBountyTargets(player);
-    } else if (slot == 4) {
+    } else if (slot == 13) {
         if (hasRequiredLevel(player, 20, "the Auction Market")) openAuctionHouse(player, 0);
-    } else if (slot == 5) {
+    } else if (slot == 14) {
         openLeaderboardMenu(player);
-    } else if (slot == 8) {
+    } else if (slot == 17) {
         player.closeInventory();
     }
     return;
