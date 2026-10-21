@@ -71,6 +71,10 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final String menuTitle2 = color("&8&lSite Chaos Menu (Unused)");
     private final String auctionTitle = color("&8&lAuction House");
     private final String myListingsTitle = color("&8&lMy Auction Listings");
+    private final String leaderboardMenuTitle = color("&8&lLeaderboards");
+    private final String leaderboardMoneyTitle = color("&8&lMoney Leaderboard");
+    private final String leaderboardBountyTitle = color("&8&lBounty Leaderboard");
+    private final String leaderboardLevelTitle = color("&8&lLevel Leaderboard");
 
     private static class AuctionListing {
         UUID id;
@@ -392,8 +396,6 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     }
 
     private void openMenu(Player player, int page) {
-        // 6 rows. Feature icons follow the same pattern on rows 2, 4, and 6:
-        // columns 2, 4, 6, and 8 (zero-based slots 10, 12, 14, 16, etc.).
         Inventory inv = Bukkit.createInventory(null, 54, menuTitle1);
 
         int level = getPlayerLevel(player);
@@ -418,21 +420,121 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                         : List.of("&7Buy and sell player items", "&cRequires level 20",
                                 "&7Your level: " + (levelsAvailable ? level : "Unavailable"))));
 
-        inv.setItem(16, makeItem(Material.ENCHANTED_BOOK, "&d&lKits",
-                List.of("&7Claim server kits", "&eComing soon")));
+        inv.setItem(28, makeItem(Material.GOLDEN_APPLE, "&b&lLeaderboards",
+                List.of("&7See the server's top players", "", "&eClick to view leaderboards")));
 
-        inv.setItem(28, makeItem(Material.COMPASS, "&b&lPlayer Warps",
-                List.of("&7Visit player-created warps", "&eComing soon")));
+        inv.setItem(30, makeItem(Material.ENCHANTED_BOOK, "&a&lQuests",
+                List.of("&7View and complete server quests", "&eClick to open quests")));
 
-        inv.setItem(30, makeItem(Material.BOOK, "&a&lQuests",
-                List.of("&7View server quests", "&eComing soon")));
-
-        // Keep the close button on the same visual pattern in the bottom row.
         inv.setItem(52, makeItem(Material.BARRIER, "&c&lClose Menu",
                 List.of("&7Close this menu")));
 
         currentCategory.remove(player.getUniqueId());
         sellSlots.remove(player.getUniqueId());
+        player.openInventory(inv);
+    }
+
+    private void openLeaderboardMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, leaderboardMenuTitle);
+        inv.setItem(11, makeItem(Material.EMERALD, "&a&lMoney Leaderboard",
+                List.of("&7Players with the most money", "&eClick to view top 10")));
+        inv.setItem(13, makeItem(Material.IRON_SWORD, "&c&lBounty Leaderboard",
+                List.of("&7Players with the highest bounties", "&eClick to view top 10")));
+        inv.setItem(15, makeItem(Material.EXPERIENCE_BOTTLE, "&d&lLevel Leaderboard",
+                List.of("&7Players with the highest levels", "&eClick to view top 10")));
+        inv.setItem(22, makeItem(Material.ARROW, "&c&lBack",
+                List.of("&7Return to the server menu")));
+        player.openInventory(inv);
+    }
+
+    private void openLeaderboard(Player player, String type) {
+        String title = switch (type) {
+            case "money" -> leaderboardMoneyTitle;
+            case "bounty" -> leaderboardBountyTitle;
+            default -> leaderboardLevelTitle;
+        };
+        Inventory inv = Bukkit.createInventory(null, 54, title);
+
+        class Entry {
+            final UUID id;
+            final String name;
+            final double score;
+            Entry(UUID id, String name, double score) {
+                this.id = id; this.name = name; this.score = score;
+            }
+        }
+        List<Entry> entries = new ArrayList<>();
+
+        if (type.equals("money")) {
+            for (OfflinePlayer offline : Bukkit.getOfflinePlayers()) {
+                if (offline.getName() == null) continue;
+                double balance = eco.getBalance(offline);
+                if (Double.isFinite(balance) && balance >= 0) {
+                    entries.add(new Entry(offline.getUniqueId(), offline.getName(), balance));
+                }
+            }
+        } else if (type.equals("bounty")) {
+            for (Map.Entry<UUID, Double> bounty : bounties.entrySet()) {
+                double amount = bounty.getValue();
+                if (amount > 0 && Double.isFinite(amount)) {
+                    entries.add(new Entry(bounty.getKey(),
+                            bountyNames.getOrDefault(bounty.getKey(), "Unknown"), amount));
+                }
+            }
+        } else {
+            org.bukkit.plugin.Plugin levelsPlugin = Bukkit.getPluginManager().getPlugin("CustomLevels");
+            if (levelsPlugin == null) {
+                for (org.bukkit.plugin.Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
+                    if (plugin.getName().toLowerCase(Locale.ROOT).contains("customlevels")
+                            || plugin.getClass().getSimpleName().equalsIgnoreCase("CustomLevelsPlugin")) {
+                        levelsPlugin = plugin;
+                        break;
+                    }
+                }
+            }
+            if (levelsPlugin != null && levelsPlugin.isEnabled()) {
+                File dataFile = new File(levelsPlugin.getDataFolder(), "players.yml");
+                YamlConfiguration data = YamlConfiguration.loadConfiguration(dataFile);
+                ConfigurationSection players = data.getConfigurationSection("players");
+                if (players != null) {
+                    for (String key : players.getKeys(false)) {
+                        try {
+                            UUID id = UUID.fromString(key);
+                            int playerLevel = players.getInt(key + ".level", 1);
+                            OfflinePlayer offline = Bukkit.getOfflinePlayer(id);
+                            String name = offline.getName();
+                            if (name != null && playerLevel > 0) entries.add(new Entry(id, name, playerLevel));
+                        } catch (IllegalArgumentException ignored) {}
+                    }
+                }
+            }
+        }
+
+        entries.sort((a, b) -> Double.compare(b.score, a.score));
+        if (entries.isEmpty()) {
+            inv.setItem(22, makeItem(Material.BARRIER, "&cNo leaderboard data",
+                    List.of("&7There are no entries to display yet.")));
+        } else {
+            for (int i = 0; i < Math.min(10, entries.size()); i++) {
+                Entry entry = entries.get(i);
+                ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+                SkullMeta meta = (SkullMeta) head.getItemMeta();
+                if (meta != null) {
+                    meta.setOwningPlayer(Bukkit.getOfflinePlayer(entry.id));
+                    meta.setDisplayName(color("&e#" + (i + 1) + " &f" + entry.name));
+                    String scoreLine = switch (type) {
+                        case "money" -> "&aBalance: &2$" + money(entry.score);
+                        case "bounty" -> "&cBounty: &6$" + money(entry.score);
+                        default -> "&dLevel: &f" + (int) entry.score;
+                    };
+                    meta.setLore(List.of(color(scoreLine)));
+                    head.setItemMeta(meta);
+                }
+                inv.setItem(i, head);
+            }
+        }
+        inv.setItem(49, makeItem(Material.ARROW, "&c&lBack",
+                List.of("&7Return to leaderboards")));
         player.openInventory(inv);
     }
 
@@ -937,10 +1039,13 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
         boolean bountyMenu = title.equals(bountyTargetTitle) || title.equals(bountyAmountTitle);
         boolean serverMenu = title.equals(menuTitle1) || title.equals(menuTitle2);
+        boolean leaderboardMenu = title.equals(leaderboardMenuTitle);
+        boolean leaderboardRanking = title.equals(leaderboardMoneyTitle)
+                || title.equals(leaderboardBountyTitle) || title.equals(leaderboardLevelTitle);
         boolean auctionMenu = title.equals(auctionTitle) || title.equals(myListingsTitle);
 
         if (!title.equals(mainTitle) && !title.equals(categoryTitle) && !title.equals(sellTitle)
-                && !bountyMenu && !serverMenu && !auctionMenu) return;
+                && !bountyMenu && !serverMenu && !leaderboardMenu && !leaderboardRanking && !auctionMenu) return;
 
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -985,15 +1090,26 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 openBountyTargets(player);
             } else if (slot == 14) {
                 if (hasRequiredLevel(player, 20, "the Auction Market")) openAuctionHouse(player, 0);
-            } else if (slot == 16) {
-                msg(player, "&dKits are coming soon.");
             } else if (slot == 28) {
-                msg(player, "&bPlayer Warps are coming soon.");
+                openLeaderboardMenu(player);
             } else if (slot == 30) {
-                msg(player, "&aQuests are coming soon.");
+                player.performCommand("quests");
             } else if (slot == 52) {
                 player.closeInventory();
             }
+            return;
+        }
+
+        if (leaderboardMenu) {
+            if (slot == 11) openLeaderboard(player, "money");
+            else if (slot == 13) openLeaderboard(player, "bounty");
+            else if (slot == 15) openLeaderboard(player, "level");
+            else if (slot == 22) openMenu(player, 1);
+            return;
+        }
+
+        if (leaderboardRanking) {
+            if (slot == 49) openLeaderboardMenu(player);
             return;
         }
 
