@@ -396,43 +396,51 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     }
 
     private void openMenu(Player player, int page) {
-        Inventory inv = Bukkit.createInventory(null, 54, menuTitle1);
+    Inventory inv = Bukkit.createInventory(null, 27, menuTitle1);
 
-        int level = getPlayerLevel(player);
-        boolean levelsAvailable = level >= 0;
-        boolean shopUnlocked = levelsAvailable && level >= 10;
-        boolean auctionUnlocked = levelsAvailable && level >= 20;
+    int level = getPlayerLevel(player);
+    boolean levelsAvailable = level >= 0;
+    boolean shopUnlocked = levelsAvailable && level >= 10;
+    boolean auctionUnlocked = levelsAvailable && level >= 20;
 
-        inv.setItem(10, makeItem(shopUnlocked ? Material.CHEST : Material.BARRIER,
-                shopUnlocked ? "&a&lShop" : "&c&lShop &7(&cLocked&7)",
-                shopUnlocked
-                        ? List.of("&7Browse the server shop", "&eClick to open")
-                        : List.of("&7Browse the server shop", "&cRequires level 10",
-                                "&7Your level: " + (levelsAvailable ? level : "Unavailable"))));
+    inv.setItem(2, makeItem(
+            shopUnlocked ? Material.CHEST : Material.BARRIER,
+            shopUnlocked ? "&a&lShop" : "&c&lShop &7(&cLocked&7)",
+            shopUnlocked
+                    ? List.of("&7Browse the server shop", "&eClick to open")
+                    : List.of("&cRequires level 10",
+                              "&7Your level: " + (levelsAvailable ? level : "Unavailable"))
+    ));
 
-        inv.setItem(12, makeItem(Material.PLAYER_HEAD, "&c&lBounty Board",
-                List.of("&7Place and view bounties", "&eClick to open")));
+    inv.setItem(3, makeItem(
+            Material.PLAYER_HEAD,
+            "&c&lBounty Board",
+            List.of("&7Place and view bounties", "&eClick to open")
+    ));
 
-        inv.setItem(14, makeItem(auctionUnlocked ? Material.GOLD_INGOT : Material.BARRIER,
-                auctionUnlocked ? "&6&lAuction Market" : "&6&lAuction Market &7(&cLocked&7)",
-                auctionUnlocked
-                        ? List.of("&7Buy and sell player items", "&eClick to open")
-                        : List.of("&7Buy and sell player items", "&cRequires level 20",
-                                "&7Your level: " + (levelsAvailable ? level : "Unavailable"))));
+    inv.setItem(4, makeItem(
+            auctionUnlocked ? Material.GOLD_INGOT : Material.BARRIER,
+            auctionUnlocked ? "&6&lAuction Market" : "&6&lAuction Market &7(&cLocked&7)",
+            auctionUnlocked
+                    ? List.of("&7Buy and sell player items", "&eClick to open")
+                    : List.of("&cRequires level 20",
+                              "&7Your level: " + (levelsAvailable ? level : "Unavailable"))
+    ));
 
-        inv.setItem(28, makeItem(Material.GOLDEN_APPLE, "&b&lLeaderboards",
-                List.of("&7See the server's top players", "", "&eClick to view leaderboards")));
+    inv.setItem(5, makeItem(
+            Material.GOLDEN_APPLE,
+            "&b&lLeaderboards",
+            List.of("&7See the server's top players", "&eClick to view")
+    ));
 
-        inv.setItem(30, makeItem(Material.ENCHANTED_BOOK, "&a&lQuests",
-                List.of("&7View and complete server quests", "&eClick to open quests")));
+    inv.setItem(8, makeItem(
+            Material.BARRIER,
+            "&c&lClose",
+            List.of("&7Close this menu")
+    ));
 
-        inv.setItem(52, makeItem(Material.BARRIER, "&c&lClose Menu",
-                List.of("&7Close this menu")));
-
-        currentCategory.remove(player.getUniqueId());
-        sellSlots.remove(player.getUniqueId());
-        player.openInventory(inv);
-    }
+    player.openInventory(inv);
+}
 
     private void openLeaderboardMenu(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, leaderboardMenuTitle);
@@ -1083,22 +1091,20 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             return;
         }
 
-        if (serverMenu) {
-            if (slot == 10) {
-                if (hasRequiredLevel(player, 10, "/shop")) openMain(player);
-            } else if (slot == 12) {
-                openBountyTargets(player);
-            } else if (slot == 14) {
-                if (hasRequiredLevel(player, 20, "the Auction Market")) openAuctionHouse(player, 0);
-            } else if (slot == 28) {
-                openLeaderboardMenu(player);
-            } else if (slot == 30) {
-                player.performCommand("quests");
-            } else if (slot == 52) {
-                player.closeInventory();
-            }
-            return;
-        }
+if (serverMenu) {
+    if (slot == 2) {
+        if (hasRequiredLevel(player, 10, "/shop")) openMain(player);
+    } else if (slot == 3) {
+        openBountyTargets(player);
+    } else if (slot == 4) {
+        if (hasRequiredLevel(player, 20, "the Auction Market")) openAuctionHouse(player, 0);
+    } else if (slot == 5) {
+        openLeaderboardMenu(player);
+    } else if (slot == 8) {
+        player.closeInventory();
+    }
+    return;
+}
 
         if (leaderboardMenu) {
             if (slot == 11) openLeaderboard(player, "money");
