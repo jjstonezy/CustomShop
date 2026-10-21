@@ -192,9 +192,9 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         return item;
     }
 
-    // -------------------- CUSTOM LEVEL REQUIREMENTS --------------------
+    // -------------------- LEVEL REQUIREMENTS --------------------
 
-    private int getCustomLevel(Player player) {
+    private int getPlayerLevel(Player player) {
         org.bukkit.plugin.Plugin levelsPlugin = Bukkit.getPluginManager().getPlugin("CustomLevels");
 
         // Fall back to finding the plugin by its main class/name if its plugin.yml name differs.
@@ -219,15 +219,15 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     }
 
     private boolean hasRequiredLevel(Player player, int requiredLevel, String feature) {
-        int level = getCustomLevel(player);
+        int level = getPlayerLevel(player);
         if (level < 0) {
-            msg(player, "&cThe custom level system is unavailable right now. Please contact staff.");
+            msg(player, "&cThe level system is unavailable right now. Please contact staff.");
             getLogger().warning("Blocked " + feature + " access for " + player.getName()
                     + " because the CustomLevels plugin could not be found.");
             return false;
         }
         if (level < requiredLevel) {
-            msg(player, "&cYou need custom level &d" + requiredLevel
+            msg(player, "&cYou need level &d" + requiredLevel
                     + " &cto unlock " + feature + ". &7Your level: &d" + level);
             return false;
         }
@@ -392,11 +392,11 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     }
 
     private void openMenu(Player player, int page) {
-        // All current features fit on one 6-row page. Keep icons spread across
-        // four rows so the menu feels balanced without an unnecessary next-page button.
+        // 6 rows. Feature icons follow the same pattern on rows 2, 4, and 6:
+        // columns 2, 4, 6, and 8 (zero-based slots 10, 12, 14, 16, etc.).
         Inventory inv = Bukkit.createInventory(null, 54, menuTitle1);
 
-        int level = getCustomLevel(player);
+        int level = getPlayerLevel(player);
         boolean levelsAvailable = level >= 0;
         boolean shopUnlocked = levelsAvailable && level >= 10;
         boolean auctionUnlocked = levelsAvailable && level >= 20;
@@ -405,29 +405,30 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 shopUnlocked ? "&a&lShop" : "&c&lShop &7(&cLocked&7)",
                 shopUnlocked
                         ? List.of("&7Browse the server shop", "&eClick to open")
-                        : List.of("&7Browse the server shop", "&cRequires custom level 10",
+                        : List.of("&7Browse the server shop", "&cRequires level 10",
                                 "&7Your level: " + (levelsAvailable ? level : "Unavailable"))));
 
-        inv.setItem(16, makeItem(Material.PLAYER_HEAD, "&c&lBounty Board",
+        inv.setItem(12, makeItem(Material.PLAYER_HEAD, "&c&lBounty Board",
                 List.of("&7Place and view bounties", "&eClick to open")));
 
-        inv.setItem(19, makeItem(auctionUnlocked ? Material.GOLD_INGOT : Material.BARRIER,
+        inv.setItem(14, makeItem(auctionUnlocked ? Material.GOLD_INGOT : Material.BARRIER,
                 auctionUnlocked ? "&6&lAuction Market" : "&6&lAuction Market &7(&cLocked&7)",
                 auctionUnlocked
                         ? List.of("&7Buy and sell player items", "&eClick to open")
-                        : List.of("&7Buy and sell player items", "&cRequires custom level 20",
+                        : List.of("&7Buy and sell player items", "&cRequires level 20",
                                 "&7Your level: " + (levelsAvailable ? level : "Unavailable"))));
 
-        inv.setItem(25, makeItem(Material.ENCHANTED_BOOK, "&d&lKits",
+        inv.setItem(16, makeItem(Material.ENCHANTED_BOOK, "&d&lKits",
                 List.of("&7Claim server kits", "&eComing soon")));
 
         inv.setItem(28, makeItem(Material.COMPASS, "&b&lPlayer Warps",
                 List.of("&7Visit player-created warps", "&eComing soon")));
 
-        inv.setItem(34, makeItem(Material.BOOK, "&a&lQuests",
+        inv.setItem(30, makeItem(Material.BOOK, "&a&lQuests",
                 List.of("&7View server quests", "&eComing soon")));
 
-        inv.setItem(49, makeItem(Material.BARRIER, "&c&lClose Menu",
+        // Keep the close button on the same visual pattern in the bottom row.
+        inv.setItem(52, makeItem(Material.BARRIER, "&c&lClose Menu",
                 List.of("&7Close this menu")));
 
         currentCategory.remove(player.getUniqueId());
@@ -980,17 +981,17 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         if (serverMenu) {
             if (slot == 10) {
                 if (hasRequiredLevel(player, 10, "/shop")) openMain(player);
-            } else if (slot == 16) {
+            } else if (slot == 12) {
                 openBountyTargets(player);
-            } else if (slot == 19) {
+            } else if (slot == 14) {
                 if (hasRequiredLevel(player, 20, "the Auction Market")) openAuctionHouse(player, 0);
-            } else if (slot == 25) {
+            } else if (slot == 16) {
                 msg(player, "&dKits are coming soon.");
             } else if (slot == 28) {
                 msg(player, "&bPlayer Warps are coming soon.");
-            } else if (slot == 34) {
+            } else if (slot == 30) {
                 msg(player, "&aQuests are coming soon.");
-            } else if (slot == 49) {
+            } else if (slot == 52) {
                 player.closeInventory();
             }
             return;
