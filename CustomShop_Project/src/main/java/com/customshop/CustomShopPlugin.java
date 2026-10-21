@@ -67,8 +67,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final String sellTitle = color("&c&lSell Items");
     private final String bountyTargetTitle = color("&8&lChoose Bounty Target");
     private final String bountyAmountTitle = color("&8&lChoose Bounty Amount");
-    private final String menuTitle1 = color("&8&lSite Chaos Menu &7(Page 1/2)");
-    private final String menuTitle2 = color("&8&lSite Chaos Menu &7(Page 2/2)");
+    private final String menuTitle1 = color("&8&lSite Chaos Menu");
+    private final String menuTitle2 = color("&8&lSite Chaos Menu (Unused)");
     private final String auctionTitle = color("&8&lAuction House");
     private final String myListingsTitle = color("&8&lMy Auction Listings");
 
@@ -192,6 +192,48 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         return item;
     }
 
+    // -------------------- CUSTOM LEVEL REQUIREMENTS --------------------
+
+    private int getCustomLevel(Player player) {
+        org.bukkit.plugin.Plugin levelsPlugin = Bukkit.getPluginManager().getPlugin("CustomLevels");
+
+        // Fall back to finding the plugin by its main class/name if its plugin.yml name differs.
+        if (levelsPlugin == null) {
+            for (org.bukkit.plugin.Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
+                String pluginName = plugin.getName().toLowerCase(Locale.ROOT);
+                String className = plugin.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+                if (pluginName.contains("customlevels") || className.equals("customlevelsplugin")) {
+                    levelsPlugin = plugin;
+                    break;
+                }
+            }
+        }
+
+        if (levelsPlugin == null || !levelsPlugin.isEnabled()) return -1;
+
+        File dataFile = new File(levelsPlugin.getDataFolder(), "players.yml");
+        if (!dataFile.isFile()) return 1;
+
+        YamlConfiguration data = YamlConfiguration.loadConfiguration(dataFile);
+        return Math.max(1, data.getInt("players." + player.getUniqueId() + ".level", 1));
+    }
+
+    private boolean hasRequiredLevel(Player player, int requiredLevel, String feature) {
+        int level = getCustomLevel(player);
+        if (level < 0) {
+            msg(player, "&cThe custom level system is unavailable right now. Please contact staff.");
+            getLogger().warning("Blocked " + feature + " access for " + player.getName()
+                    + " because the CustomLevels plugin could not be found.");
+            return false;
+        }
+        if (level < requiredLevel) {
+            msg(player, "&cYou need custom level &d" + requiredLevel
+                    + " &cto unlock " + feature + ". &7Your level: &d" + level);
+            return false;
+        }
+        return true;
+    }
+
     // -------------------- COMMANDS --------------------
 
     @Override
@@ -210,7 +252,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
 
         switch (cmd) {
-            case "shop" -> openMain(player);
+            case "shop" -> { if (hasRequiredLevel(player, 10, "/shop")) openMain(player); }
             case "menu" -> openMenu(player, 1);
             case "bounty" -> handleBountyCommand(player, args);
             case "ah" -> handleAuctionCommand(player, args);
@@ -311,6 +353,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     // -------------------- MAIN SHOP --------------------
 
     private void openMain(Player player) {
+        if (!hasRequiredLevel(player, 10, "/shop")) return;
         String title = formatTitle(getConfig().getString(
                 "shop-title", "<green><bold>Server Shop</bold></green>"));
         int size = getConfig().getInt("size", 27);
@@ -349,30 +392,44 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     }
 
     private void openMenu(Player player, int page) {
-        boolean second = page == 2;
-        Inventory inv = Bukkit.createInventory(null, 54, second ? menuTitle2 : menuTitle1);
+        // All current features fit on one 6-row page. Keep icons spread across
+        // four rows so the menu feels balanced without an unnecessary next-page button.
+        Inventory inv = Bukkit.createInventory(null, 54, menuTitle1);
 
-        if (!second) {
-            inv.setItem(10, makeItem(Material.CHEST, "&a&lShop",
-                    List.of("&7Browse the server shop", "&eClick to open")));
-            inv.setItem(12, makeItem(Material.PLAYER_HEAD, "&c&lBounty Board",
-                    List.of("&7Place and view bounties", "&eClick to open")));
-            inv.setItem(14, makeItem(Material.GOLD_INGOT, "&6&lAuction Market",
-                    List.of("&7Buy and sell player items", "&eClick to open")));
-            inv.setItem(16, makeItem(Material.ENCHANTED_BOOK, "&d&lKits",
-                    List.of("&7Claim server kits", "&eComing soon")));
-            inv.setItem(53, makeItem(Material.ARROW, "&eNext Page",
-                    List.of("&7View more features")));
-        } else {
-            inv.setItem(10, makeItem(Material.COMPASS, "&b&lPlayer Warps",
-                    List.of("&7Visit player-created warps", "&eComing soon")));
-            inv.setItem(12, makeItem(Material.BOOK, "&a&lQuests",
-                    List.of("&7View server quests", "&eComing soon")));
-            inv.setItem(45, makeItem(Material.ARROW, "&ePrevious Page",
-                    List.of("&7Return to page one")));
-            inv.setItem(49, makeItem(Material.BARRIER, "&c&lClose Menu",
-                    List.of("&7Close this menu")));
-        }
+        int level = getCustomLevel(player);
+        boolean levelsAvailable = level >= 0;
+        boolean shopUnlocked = levelsAvailable && level >= 10;
+        boolean auctionUnlocked = levelsAvailable && level >= 20;
+
+        inv.setItem(10, makeItem(shopUnlocked ? Material.CHEST : Material.BARRIER,
+                shopUnlocked ? "&a&lShop" : "&c&lShop &7(&cLocked&7)",
+                shopUnlocked
+                        ? List.of("&7Browse the server shop", "&eClick to open")
+                        : List.of("&7Browse the server shop", "&cRequires custom level 10",
+                                "&7Your level: " + (levelsAvailable ? level : "Unavailable"))));
+
+        inv.setItem(16, makeItem(Material.PLAYER_HEAD, "&c&lBounty Board",
+                List.of("&7Place and view bounties", "&eClick to open")));
+
+        inv.setItem(19, makeItem(auctionUnlocked ? Material.GOLD_INGOT : Material.BARRIER,
+                auctionUnlocked ? "&6&lAuction Market" : "&6&lAuction Market &7(&cLocked&7)",
+                auctionUnlocked
+                        ? List.of("&7Buy and sell player items", "&eClick to open")
+                        : List.of("&7Buy and sell player items", "&cRequires custom level 20",
+                                "&7Your level: " + (levelsAvailable ? level : "Unavailable"))));
+
+        inv.setItem(25, makeItem(Material.ENCHANTED_BOOK, "&d&lKits",
+                List.of("&7Claim server kits", "&eComing soon")));
+
+        inv.setItem(28, makeItem(Material.COMPASS, "&b&lPlayer Warps",
+                List.of("&7Visit player-created warps", "&eComing soon")));
+
+        inv.setItem(34, makeItem(Material.BOOK, "&a&lQuests",
+                List.of("&7View server quests", "&eComing soon")));
+
+        inv.setItem(49, makeItem(Material.BARRIER, "&c&lClose Menu",
+                List.of("&7Close this menu")));
+
         currentCategory.remove(player.getUniqueId());
         sellSlots.remove(player.getUniqueId());
         player.openInventory(inv);
@@ -579,6 +636,9 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     // -------------------- AUCTION HOUSE COMMANDS --------------------
 
     private void handleAuctionCommand(Player player, String[] args) {
+        boolean helpCommand = args.length > 0 && args[0].equalsIgnoreCase("help");
+        if (!helpCommand && !hasRequiredLevel(player, 20, "the Auction Market")) return;
+
         if (args.length == 0) {
             openAuctionHouse(player, 0);
             return;
@@ -688,6 +748,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     }
 
     private void openAuctionHouse(Player player, int requestedPage) {
+        if (!hasRequiredLevel(player, 20, "the Auction Market")) return;
         List<AuctionListing> all = new ArrayList<>(listings.values());
         all.sort(Comparator.comparing(l -> l.id.toString()));
 
@@ -917,17 +978,20 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
 
         if (serverMenu) {
-            if (title.equals(menuTitle1)) {
-                if (slot == 10) openMain(player);
-                else if (slot == 12) openBountyTargets(player);
-                else if (slot == 14) openAuctionHouse(player, 0);
-                else if (slot == 16) msg(player, "&dKits are coming soon.");
-                else if (slot == 53) openMenu(player, 2);
-            } else {
-                if (slot == 10) msg(player, "&bPlayer Warps are coming soon.");
-                else if (slot == 12) msg(player, "&aQuests are coming soon.");
-                else if (slot == 45) openMenu(player, 1);
-                else if (slot == 49) player.closeInventory();
+            if (slot == 10) {
+                if (hasRequiredLevel(player, 10, "/shop")) openMain(player);
+            } else if (slot == 16) {
+                openBountyTargets(player);
+            } else if (slot == 19) {
+                if (hasRequiredLevel(player, 20, "the Auction Market")) openAuctionHouse(player, 0);
+            } else if (slot == 25) {
+                msg(player, "&dKits are coming soon.");
+            } else if (slot == 28) {
+                msg(player, "&bPlayer Warps are coming soon.");
+            } else if (slot == 34) {
+                msg(player, "&aQuests are coming soon.");
+            } else if (slot == 49) {
+                player.closeInventory();
             }
             return;
         }
