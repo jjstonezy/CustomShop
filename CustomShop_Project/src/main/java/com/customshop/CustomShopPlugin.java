@@ -269,11 +269,11 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 if (online == null || totals == null) return;
                 for (Map.Entry<String, Double> entry : totals.entrySet()) {
                     String[] parts = entry.getKey().split(" \\| ", 2);
-                    String activity = parts[0];
-                    String source = parts.length > 1 ? parts[1] : "Unknown";
+                    String noticeActivity = parts[0];
+                    String noticeSource = parts.length > 1 ? parts[1] : "Unknown";
                     msg(online, "&a&l+$" + money(entry.getValue())
-                            + " &7- " + activity + " &7| "
-                            + rewardSourceColor(activity, source) + "&l" + source);
+                            + " &7- " + noticeActivity + " &7| "
+                            + rewardSourceColor(noticeActivity, noticeSource) + "&l" + noticeSource);
                 }
             }, 40L);
         }
