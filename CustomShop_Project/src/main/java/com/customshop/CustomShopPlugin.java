@@ -104,6 +104,10 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final String menuTitle2 = color("&8&lSite Chaos Menu (Unused)");
     private final String auctionTitle = color("&8&lAuction House");
     private final String myListingsTitle = color("&8&lMy Auction Listings");
+    private final String auctionConfirmTitle = color("&8&lConfirm Auction Action");
+    private final Map<UUID, UUID> pendingAuctionPurchase = new HashMap<>();
+    private final Map<UUID, UUID> pendingAuctionCancel = new HashMap<>();
+    private final Map<UUID, Double> pendingAuctionSale = new HashMap<>();
     private final String leaderboardMenuTitle = color("&8&lLeaderboards");
     private final String leaderboardMoneyTitle = color("&8&lMoney Leaderboard");
     private final String leaderboardBountyTitle = color("&8&lBounty Leaderboard");
@@ -1087,7 +1091,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                     msg(player, "&cEnter a valid price.");
                     return;
                 }
-                createListing(player, price);
+                openAuctionSaleConfirmation(player, price);
             }
             case "cancel" -> {
                 if (args.length != 2) {
@@ -1101,6 +1105,69 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             case "collect" -> collectAuctionItems(player);
             default -> msg(player, "&cUnknown auction command. Use /ah help.");
         }
+    }
+
+    private void openAuctionSaleConfirmation(Player player, double price) {
+        ItemStack hand = player.getInventory().getItemInMainHand();
+        if (hand == null || hand.getType().isAir()) {
+            msg(player, "&cHold the item you want to list in your main hand.");
+            return;
+        }
+        if (!Double.isFinite(price) || price < 1 || price > 1_000_000_000_000.0) {
+            msg(player, "&cInvalid auction price.");
+            return;
+        }
+        pendingAuctionPurchase.remove(player.getUniqueId());
+        pendingAuctionCancel.remove(player.getUniqueId());
+        pendingAuctionSale.put(player.getUniqueId(), price);
+        openAuctionConfirmation(player, hand, "&eList for &6$" + money(price),
+                "&7You will receive &a$" + money(price * SELLER_SHARE) + " &7if sold.");
+    }
+
+    private void openAuctionBuyConfirmation(Player player, UUID id) {
+        AuctionListing listing = listings.get(id);
+        if (listing == null) {
+            msg(player, "&cThat listing is no longer available.");
+            return;
+        }
+        if (listing.sellerId.equals(player.getUniqueId())) {
+            msg(player, "&cYou cannot buy your own listing.");
+            return;
+        }
+        clearPendingAuction(player);
+        pendingAuctionPurchase.put(player.getUniqueId(), id);
+        openAuctionConfirmation(player, listing.item,
+                "&eBuy for &6$" + money(listing.price), "&7Seller: &f" + listing.sellerName);
+    }
+
+    private void openAuctionCancelConfirmation(Player player, UUID id) {
+        AuctionListing listing = listings.get(id);
+        if (listing == null || !listing.sellerId.equals(player.getUniqueId())) {
+            msg(player, "&cYour listing is no longer available.");
+            return;
+        }
+        clearPendingAuction(player);
+        pendingAuctionCancel.put(player.getUniqueId(), id);
+        openAuctionConfirmation(player, listing.item, "&cCancel this listing?",
+                "&7Your item will be returned via &e/ah collect&7.");
+    }
+
+    private void openAuctionConfirmation(Player player, ItemStack item, String heading, String detail) {
+        Inventory inv = Bukkit.createInventory(null, 27, auctionConfirmTitle);
+        inv.setItem(13, item.clone());
+        inv.setItem(4, makeItem(Material.PAPER, heading, List.of(detail)));
+        inv.setItem(11, makeItem(Material.LIME_CONCRETE, "&a&lCONFIRM",
+                List.of("&7Click to proceed")));
+        inv.setItem(15, makeItem(Material.RED_CONCRETE, "&c&lDECLINE",
+                List.of("&7Click to go back without changes")));
+        player.openInventory(inv);
+    }
+
+    private void clearPendingAuction(Player player) {
+        UUID id = player.getUniqueId();
+        pendingAuctionPurchase.remove(id);
+        pendingAuctionCancel.remove(id);
+        pendingAuctionSale.remove(id);
     }
 
     private void createListing(Player seller, double price) {
@@ -1227,7 +1294,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
                 lore.add(color("&6Price: &e$" + money(listing.price)));
                 lore.add(color("&7Listing ID: &f" + shortId(listing.id)));
-                lore.add(color("&cCancel with /ah cancel " + shortId(listing.id)));
+                lore.add(color("&cClick to cancel this listing"));
                 meta.setLore(lore);
                 display.setItemMeta(meta);
             }
@@ -1359,7 +1426,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         boolean leaderboardMenu = title.equals(leaderboardMenuTitle);
         boolean leaderboardRanking = title.equals(leaderboardMoneyTitle)
                 || title.equals(leaderboardBountyTitle) || title.equals(leaderboardLevelTitle);
-        boolean auctionMenu = title.equals(auctionTitle) || title.equals(myListingsTitle);
+        boolean auctionMenu = title.equals(auctionTitle) || title.equals(myListingsTitle) || title.equals(auctionConfirmTitle);
 
         if (!title.equals(mainTitle) && !title.equals(categoryTitle) && !title.equals(buyConfirmTitle) && !title.equals(sellTitle)
                 && !bountyMenu && !serverMenu && !leaderboardMenu && !leaderboardRanking && !auctionMenu) return;
@@ -1390,7 +1457,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
             List<UUID> shown = auctionPageListings.getOrDefault(player.getUniqueId(), Collections.emptyList());
             if (slot >= 0 && slot < 45 && slot < shown.size()) {
-                buyListing(player, shown.get(slot));
+                openAuctionBuyConfirmation(player, shown.get(slot));
             }
             return;
         }
@@ -1820,6 +1887,9 @@ if (serverMenu) {
         pendingPayoutNotices.remove(id);
         auctionPageListings.remove(id);
         auctionPages.remove(id);
+        pendingAuctionPurchase.remove(id);
+        pendingAuctionCancel.remove(id);
+        pendingAuctionSale.remove(id);
     }
 
     // -------------------- BOUNTY STORAGE --------------------
