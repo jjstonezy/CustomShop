@@ -242,7 +242,7 @@ categories:
       wool_carpet:
         material: WHITE_WOOL
         name: '&f&lWool & Carpets'
-        slot: 10
+        slot: 11
         items:
           white_wool:
             material: WHITE_WOOL
@@ -439,7 +439,7 @@ categories:
       concrete:
         material: WHITE_CONCRETE
         name: '&b&lConcrete'
-        slot: 12
+        slot: 13
         items:
           white:
             material: WHITE_CONCRETE
@@ -653,7 +653,7 @@ categories:
       terracotta:
         material: TERRACOTTA
         name: '&6&lTerracotta'
-        slot: 16
+        slot: 15
         items:
           terracotta:
             material: TERRACOTTA
@@ -1034,133 +1034,133 @@ categories:
           oak_door:
             material: OAK_DOOR
             name: '&6Oak Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 22
           spruce_door:
             material: SPRUCE_DOOR
             name: '&6Spruce Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 23
           birch_door:
             material: BIRCH_DOOR
             name: '&6Birch Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 24
           jungle_door:
             material: JUNGLE_DOOR
             name: '&6Jungle Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 25
           acacia_door:
             material: ACACIA_DOOR
             name: '&6Acacia Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 26
           dark_oak_door:
             material: DARK_OAK_DOOR
             name: '&6Dark Oak Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 27
           mangrove_door:
             material: MANGROVE_DOOR
             name: '&6Mangrove Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 28
           cherry_door:
             material: CHERRY_DOOR
             name: '&6Cherry Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 29
           bamboo_door:
             material: BAMBOO_DOOR
             name: '&6Bamboo Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 30
           crimson_door:
             material: CRIMSON_DOOR
             name: '&6Crimson Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 31
           warped_door:
             material: WARPED_DOOR
             name: '&6Warped Door x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 32
           oak_trapdoor:
             material: OAK_TRAPDOOR
             name: '&6Oak Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 33
           spruce_trapdoor:
             material: SPRUCE_TRAPDOOR
             name: '&6Spruce Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 34
           birch_trapdoor:
             material: BIRCH_TRAPDOOR
             name: '&6Birch Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 35
           jungle_trapdoor:
             material: JUNGLE_TRAPDOOR
             name: '&6Jungle Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 36
           acacia_trapdoor:
             material: ACACIA_TRAPDOOR
             name: '&6Acacia Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 37
           dark_oak_trapdoor:
             material: DARK_OAK_TRAPDOOR
             name: '&6Dark Oak Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 38
           mangrove_trapdoor:
             material: MANGROVE_TRAPDOOR
             name: '&6Mangrove Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 39
           cherry_trapdoor:
             material: CHERRY_TRAPDOOR
             name: '&6Cherry Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 40
           bamboo_trapdoor:
             material: BAMBOO_TRAPDOOR
             name: '&6Bamboo Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 41
           crimson_trapdoor:
             material: CRIMSON_TRAPDOOR
             name: '&6Crimson Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 42
           warped_trapdoor:
             material: WARPED_TRAPDOOR
             name: '&6Warped Trapdoor x64'
-            amount: 64
+            amount: 4
             price: 15
             slot: 43
           oak_fence:
@@ -1364,67 +1364,67 @@ categories:
           oak_sign:
             material: OAK_SIGN
             name: '&6Oak Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 77
           spruce_sign:
             material: SPRUCE_SIGN
             name: '&6Spruce Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 78
           birch_sign:
             material: BIRCH_SIGN
             name: '&6Birch Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 79
           jungle_sign:
             material: JUNGLE_SIGN
             name: '&6Jungle Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 80
           acacia_sign:
             material: ACACIA_SIGN
             name: '&6Acacia Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 81
           dark_oak_sign:
             material: DARK_OAK_SIGN
             name: '&6Dark Oak Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 82
           mangrove_sign:
             material: MANGROVE_SIGN
             name: '&6Mangrove Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 83
           cherry_sign:
             material: CHERRY_SIGN
             name: '&6Cherry Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 84
           bamboo_sign:
             material: BAMBOO_SIGN
             name: '&6Bamboo Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 85
           crimson_sign:
             material: CRIMSON_SIGN
             name: '&6Crimson Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 86
           warped_sign:
             material: WARPED_SIGN
             name: '&6Warped Sign x64'
-            amount: 64
+            amount: 4
             price: 20
             slot: 87
           bookshelf:
@@ -1436,13 +1436,13 @@ categories:
           lantern:
             material: LANTERN
             name: '&6Lantern x64'
-            amount: 64
+            amount: 1
             price: 20
             slot: 89
           soul_lantern:
             material: SOUL_LANTERN
             name: '&6Soul Lantern x64'
-            amount: 64
+            amount: 1
             price: 20
             slot: 90
           chain:
@@ -1472,7 +1472,7 @@ categories:
           armor_stand:
             material: ARMOR_STAND
             name: '&6Armor Stand x64'
-            amount: 64
+            amount: 1
             price: 20
             slot: 95
           candle:
@@ -1484,7 +1484,7 @@ categories:
           torch:
             material: TORCH
             name: '&6Torch x64'
-            amount: 64
+            amount: 16
             price: 20
             slot: 97
           sea_pickle:
@@ -1524,79 +1524,79 @@ categories:
           redstone_torch:
             material: REDSTONE_TORCH
             name: '&cRedstone Torch x64'
-            amount: 64
+            amount: 16
             price: 12
             slot: 2
           repeater:
             material: REPEATER
             name: '&cRepeater x64'
-            amount: 64
+            amount: 1
             price: 25
             slot: 3
           comparator:
             material: COMPARATOR
             name: '&cComparator x64'
-            amount: 64
+            amount: 1
             price: 30
             slot: 4
           observer:
             material: OBSERVER
             name: '&cObserver x64'
-            amount: 64
+            amount: 1
             price: 35
             slot: 5
           piston:
             material: PISTON
             name: '&cPiston x64'
-            amount: 64
+            amount: 1
             price: 30
             slot: 6
           sticky_piston:
             material: STICKY_PISTON
             name: '&cSticky Piston x64'
-            amount: 64
+            amount: 1
             price: 45
             slot: 7
           hopper:
             material: HOPPER
             name: '&cHopper x64'
-            amount: 64
+            amount: 1
             price: 65
             slot: 8
           dispenser:
             material: DISPENSER
             name: '&cDispenser x64'
-            amount: 64
+            amount: 1
             price: 25
             slot: 9
           dropper:
             material: DROPPER
             name: '&cDropper x64'
-            amount: 64
+            amount: 1
             price: 20
             slot: 10
           lever:
             material: LEVER
             name: '&cLever x64'
-            amount: 64
+            amount: 16
             price: 5
             slot: 11
           stone_button:
             material: STONE_BUTTON
             name: '&cStone Button x64'
-            amount: 64
+            amount: 16
             price: 3
             slot: 12
           tripwire_hook:
             material: TRIPWIRE_HOOK
             name: '&cTripwire Hook x64'
-            amount: 64
+            amount: 16
             price: 10
             slot: 13
           target:
             material: TARGET
             name: '&cTarget x64'
-            amount: 64
+            amount: 1
             price: 30
             slot: 14
           slime_block:
@@ -1608,7 +1608,7 @@ categories:
           tnt:
             material: TNT
             name: '&cTnt x64'
-            amount: 64
+            amount: 1
             price: 25
             slot: 16
           coal:
@@ -1722,7 +1722,7 @@ categories:
           torch:
             material: TORCH
             name: '&cTorch x64'
-            amount: 64
+            amount: 16
             price: 4
             slot: 35
           ladder:
