@@ -61,7 +61,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final Set<String> playerPlacedOres = new HashSet<>();
     private File orePlacementsFile;
     private NamespacedKey farmSpawnKey;
-    private final Map<UUID, Long> payoutNoticeTime = new HashMap<>();
+    private final Map<UUID, Map<String, Double>> pendingPayoutNotices = new HashMap<>();
+    private final Set<UUID> payoutNoticeScheduled = new HashSet<>();
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private static final int CATEGORY_PAGE_SIZE = 18;
@@ -228,13 +229,24 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
     private void payActivity(Player player, double amount, String activity) {
         if (amount <= 0 || eco == null) return;
-        if (eco.depositPlayer(player, amount).transactionSuccess()) {
-            // Rate-limit chat notifications without reducing actual money earned.
-            long now = System.currentTimeMillis();
-            if (now - payoutNoticeTime.getOrDefault(player.getUniqueId(), 0L) >= 3000L) {
-                msg(player, "&a+$" + money(amount) + " &7(" + activity + ")");
-                payoutNoticeTime.put(player.getUniqueId(), now);
-            }
+        if (!eco.depositPlayer(player, amount).transactionSuccess()) return;
+
+        // Deposit every reward immediately, but combine notifications over two seconds.
+        // VeinMiner can fire multiple BlockBreakEvents for one mined vein.
+        UUID id = player.getUniqueId();
+        pendingPayoutNotices.computeIfAbsent(id, ignored -> new LinkedHashMap<>())
+                .merge(activity, amount, Double::sum);
+
+        if (payoutNoticeScheduled.add(id)) {
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                payoutNoticeScheduled.remove(id);
+                Map<String, Double> totals = pendingPayoutNotices.remove(id);
+                Player online = Bukkit.getPlayer(id);
+                if (online == null || totals == null) return;
+                for (Map.Entry<String, Double> entry : totals.entrySet()) {
+                    msg(online, "&a+$" + money(entry.getValue()) + " &7(" + entry.getKey() + ")");
+                }
+            }, 40L);
         }
     }
 
@@ -1776,7 +1788,7 @@ if (serverMenu) {
         selectedTargets.remove(id);
         currentCategory.remove(id);
         sellSlots.remove(id);
-        payoutNoticeTime.remove(id);
+        pendingPayoutNotices.remove(id);
         auctionPageListings.remove(id);
         auctionPages.remove(id);
     }
