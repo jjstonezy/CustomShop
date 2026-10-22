@@ -20,6 +20,12 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
+import org.bukkit.potion.PotionType;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -42,6 +48,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private final Map<UUID, String> currentCategory = new HashMap<>();
+    private final Map<UUID, Integer> currentCategoryPage = new HashMap<>();
     private final Map<UUID, Map<Integer, Material>> sellSlots = new HashMap<>();
 
     private final Map<UUID, Double> bounties = new HashMap<>();
@@ -391,6 +398,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 "&6&lSell Items", List.of("&7Sell eligible items from your inventory",
                         "&eYou receive 70% of the buy price")));
         currentCategory.remove(player.getUniqueId());
+        currentCategoryPage.remove(player.getUniqueId());
         sellSlots.remove(player.getUniqueId());
         player.openInventory(inv);
     }
@@ -547,54 +555,138 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     }
 
     private void openCategory(Player player, String key) {
+        openCategory(player, key, 0);
+    }
+
+    private void openCategory(Player player, String key, int requestedPage) {
         ConfigurationSection cat = getConfig().getConfigurationSection("categories." + key);
         if (cat == null) return;
 
-        Inventory inv = Bukkit.createInventory(null, 54, categoryTitle);
-        ConfigurationSection items = cat.getConfigurationSection("items");
-        if (items != null) {
-            for (String id : items.getKeys(false)) {
-                ConfigurationSection item = items.getConfigurationSection(id);
-                if (item == null) continue;
+        ConfigurationSection children = cat.getConfigurationSection("categories");
+        boolean hasChildren = children != null && !children.getKeys(false).isEmpty();
+        ConfigurationSection configuredItems = cat.getConfigurationSection("items");
+        int itemCount = configuredItems == null ? 0 : configuredItems.getKeys(false).size();
+        int pages = Math.max(1, (itemCount + 44) / 45);
+        int page = hasChildren ? 0 : Math.max(0, Math.min(requestedPage, pages - 1));
+        Inventory inv = Bukkit.createInventory(null, hasChildren ? 27 : 54, categoryTitle);
 
-                Material material = Material.matchMaterial(item.getString("material", ""));
-                if (material == null) continue;
-                int amount = Math.max(1, Math.min(item.getInt("amount", 1),
-                        material.getMaxStackSize()));
-
-                ItemStack stack = new ItemStack(material, amount);
-                ItemMeta meta = stack.getItemMeta();
+        if (hasChildren) {
+            for (String childKey : children.getKeys(false)) {
+                ConfigurationSection child = children.getConfigurationSection(childKey);
+                if (child == null) continue;
+                Material material = Material.matchMaterial(child.getString("material", "CHEST"));
+                if (material == null) material = Material.CHEST;
+                ItemStack icon = new ItemStack(material);
+                ItemMeta meta = icon.getItemMeta();
                 if (meta != null) {
-                    meta.setDisplayName(color(item.getString(
-                            "name", "&f" + readableItemName(material))));
-                    meta.setLore(List.of(color("&7Amount: " + amount),
-                            color("&6Price: $" + money(item.getDouble("price"))),
-                            color("&eClick to buy")));
-                    stack.setItemMeta(meta);
+                    meta.setDisplayName(color(child.getString("name", readableItemName(material))));
+                    meta.setLore(List.of(color("&7Click to browse")));
+                    icon.setItemMeta(meta);
                 }
+                int slot = child.getInt("slot", 0);
+                if (slot >= 0 && slot < 27 && slot != 22) inv.setItem(slot, icon);
+            }
+            inv.setItem(22, makeItem(Material.ARROW, "&c&lBack",
+                    List.of("&7Return to the previous menu")));
+        } else {
+            ConfigurationSection items = cat.getConfigurationSection("items");
+            if (items != null) {
+                for (String id : items.getKeys(false)) {
+                    ConfigurationSection item = items.getConfigurationSection(id);
+                    if (item == null) continue;
 
-                int slot = item.getInt("slot", 0);
-                if (slot >= 0 && slot < 45) inv.setItem(slot, stack);
+                    Material material = Material.matchMaterial(item.getString("material", ""));
+                    if (material == null) continue;
+                    int amount = Math.max(1, Math.min(item.getInt("amount", 1),
+                            material.getMaxStackSize()));
+
+                    ItemStack stack = createConfiguredItem(item, material, amount);
+                    ItemMeta meta = stack.getItemMeta();
+                    if (meta != null) {
+                        meta.setDisplayName(color(item.getString(
+                                "name", "&f" + readableItemName(material))));
+                        meta.setLore(List.of(color("&7Amount: " + amount),
+                                color("&6Price: $" + money(item.getDouble("price"))),
+                                color("&eClick to buy")));
+                        stack.setItemMeta(meta);
+                    }
+
+                    int configuredSlot = item.getInt("slot", 0);
+                    int slot = configuredSlot - (page * 45);
+                    if (slot >= 0 && slot < 45) inv.setItem(slot, stack);
+                }
+            }
+            inv.setItem(45, makeItem(Material.ARROW, "&cBack",
+                    List.of("&7Return to the previous menu")));
+            if (pages > 1) {
+                inv.setItem(48, makeItem(Material.ARROW, "&ePrevious Page",
+                        List.of("&7Page " + (page + 1) + "/" + pages)));
+                inv.setItem(50, makeItem(Material.ARROW, "&eNext Page",
+                        List.of("&7Page " + (page + 1) + "/" + pages)));
             }
         }
 
-        inv.setItem(45, makeItem(Material.ARROW, "&cBack to Shop", List.of("&7Return to categories")));
+        currentCategoryPage.put(player.getUniqueId(), page);
         currentCategory.put(player.getUniqueId(), key);
         sellSlots.remove(player.getUniqueId());
         player.openInventory(inv);
     }
 
+    private ItemStack createConfiguredItem(ConfigurationSection item, Material material, int amount) {
+        ItemStack stack = new ItemStack(material, Math.max(1, Math.min(amount, material.getMaxStackSize())));
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return stack;
+
+        String enchantKey = item.getString("enchantment");
+        if (meta instanceof EnchantmentStorageMeta bookMeta && enchantKey != null && !enchantKey.isBlank()) {
+            Enchantment enchantment = Registry.ENCHANTMENT.get(NamespacedKey.minecraft(enchantKey.toLowerCase(Locale.ROOT)));
+            if (enchantment != null) {
+                int level = Math.max(1, item.getInt("level", 1));
+                bookMeta.addStoredEnchant(enchantment, level, true);
+                meta = bookMeta;
+            } else {
+                getLogger().warning("Unknown enchantment in shop config: " + enchantKey);
+            }
+        }
+
+        String potionType = item.getString("potion-type");
+        if (meta instanceof PotionMeta potionMeta && potionType != null && !potionType.isBlank()) {
+            try {
+                potionMeta.setBasePotionType(PotionType.valueOf(potionType.toUpperCase(Locale.ROOT)));
+                meta = potionMeta;
+            } catch (IllegalArgumentException ex) {
+                getLogger().warning("Unknown potion type in shop config: " + potionType);
+            }
+        }
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
     private ConfigurationSection findItem(Material material) {
         ConfigurationSection categories = getConfig().getConfigurationSection("categories");
         if (categories == null) return null;
+        return findItemRecursive(categories, material);
+    }
 
-        for (String key : categories.getKeys(false)) {
-            ConfigurationSection items = categories.getConfigurationSection(key + ".items");
-            if (items == null) continue;
-            for (String id : items.getKeys(false)) {
-                ConfigurationSection item = items.getConfigurationSection(id);
-                if (item != null && material.name().equalsIgnoreCase(
-                        item.getString("material", ""))) return item;
+    private ConfigurationSection findItemRecursive(ConfigurationSection section, Material material) {
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection child = section.getConfigurationSection(key);
+            if (child == null) continue;
+
+            ConfigurationSection items = child.getConfigurationSection("items");
+            if (items != null) {
+                for (String id : items.getKeys(false)) {
+                    ConfigurationSection item = items.getConfigurationSection(id);
+                    if (item != null && material.name().equalsIgnoreCase(item.getString("material", ""))) {
+                        return item;
+                    }
+                }
+            }
+
+            ConfigurationSection nested = child.getConfigurationSection("categories");
+            if (nested != null) {
+                ConfigurationSection found = findItemRecursive(nested, material);
+                if (found != null) return found;
             }
         }
         return null;
@@ -1173,24 +1265,51 @@ if (serverMenu) {
             return;
         }
 
-        if (slot == 45 && title.equals(categoryTitle)) {
-            openMain(player);
-            return;
-        }
-        if (slot == 49 && title.equals(sellTitle)) {
-            openMain(player);
-            return;
-        }
-
         if (title.equals(categoryTitle)) {
             String key = currentCategory.get(player.getUniqueId());
             if (key == null) return;
-            ConfigurationSection item = getItemAtSlot(key, slot);
+            ConfigurationSection cat = getConfig().getConfigurationSection("categories." + key);
+            if (cat == null) return;
+
+            ConfigurationSection children = cat.getConfigurationSection("categories");
+            boolean hasChildren = children != null && !children.getKeys(false).isEmpty();
+            int backSlot = hasChildren ? 22 : 45;
+            int page = currentCategoryPage.getOrDefault(player.getUniqueId(), 0);
+            if (!hasChildren && slot == 48) {
+                openCategory(player, key, page - 1);
+                return;
+            }
+            if (!hasChildren && slot == 50) {
+                openCategory(player, key, page + 1);
+                return;
+            }
+            if (slot == backSlot) {
+                int lastDot = key.lastIndexOf('.');
+                if (lastDot >= 0) {
+                    openCategory(player, key.substring(0, lastDot));
+                } else {
+                    openMain(player);
+                }
+                return;
+            }
+
+            if (hasChildren) {
+                for (String childKey : children.getKeys(false)) {
+                    ConfigurationSection child = children.getConfigurationSection(childKey);
+                    if (child != null && child.getInt("slot", 0) == slot) {
+                        openCategory(player, key + "." + childKey);
+                        return;
+                    }
+                }
+                return;
+            }
+
+            ConfigurationSection item = getItemAtSlot(key, slot, page);
             if (item == null) return;
 
             Material material = Material.matchMaterial(item.getString("material", ""));
             if (material == null) return;
-            int amount = Math.max(1, item.getInt("amount", 1));
+            int amount = Math.max(1, Math.min(item.getInt("amount", 1), material.getMaxStackSize()));
             double price = item.getDouble("price");
 
             if (!Double.isFinite(price) || price < 0) {
@@ -1202,7 +1321,7 @@ if (serverMenu) {
                 return;
             }
 
-            ItemStack purchase = new ItemStack(material, amount);
+            ItemStack purchase = createConfiguredItem(item, material, amount);
             if (!canFit(player, purchase)) {
                 msg(player, "&cYour inventory is full!");
                 return;
@@ -1211,9 +1330,19 @@ if (serverMenu) {
                 msg(player, "&cPayment failed. You were not charged.");
                 return;
             }
-            player.getInventory().addItem(purchase);
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(purchase);
+            if (!leftovers.isEmpty()) {
+                eco.depositPlayer(player, price);
+                msg(player, "&cThe item could not be delivered. Your payment was refunded.");
+                return;
+            }
             msg(player, "&aBought " + amount + " " + itemName(item, material) +
                     " for $" + money(price));
+            return;
+        }
+
+        if (slot == 49 && title.equals(sellTitle)) {
+            openMain(player);
             return;
         }
 
@@ -1252,12 +1381,13 @@ if (serverMenu) {
         }
     }
 
-    private ConfigurationSection getItemAtSlot(String category, int slot) {
-        ConfigurationSection items = getConfig().getConfigurationSection("categories." + category + ".items");
+    private ConfigurationSection getItemAtSlot(String categoryPath, int slot, int page) {
+        ConfigurationSection items = getConfig().getConfigurationSection("categories." + categoryPath + ".items");
         if (items == null) return null;
+        int configuredSlot = slot + (page * 45);
         for (String id : items.getKeys(false)) {
             ConfigurationSection item = items.getConfigurationSection(id);
-            if (item != null && item.getInt("slot", 0) == slot) return item;
+            if (item != null && item.getInt("slot", 0) == configuredSlot) return item;
         }
         return null;
     }
@@ -1343,6 +1473,7 @@ if (serverMenu) {
         awaitingCustomAmount.remove(id);
         selectedTargets.remove(id);
         currentCategory.remove(id);
+        currentCategoryPage.remove(id);
         sellSlots.remove(id);
         auctionPageListings.remove(id);
         auctionPages.remove(id);
