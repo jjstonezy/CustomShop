@@ -14,6 +14,17 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Item;
+import org.bukkit.event.EventPriority;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.block.Block;
+import org.bukkit.Location;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -45,9 +56,22 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private static final double SELLER_SHARE = 0.95;
 
     private Economy eco;
+    private final Map<Material, Double> oreRewards = new EnumMap<>(Material.class);
+    private final Map<EntityType, Double> mobRewards = new EnumMap<>(EntityType.class);
+    private final Set<String> playerPlacedOres = new HashSet<>();
+    private File orePlacementsFile;
+    private NamespacedKey farmSpawnKey;
+    private final Map<UUID, Long> payoutNoticeTime = new HashMap<>();
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private static final int CATEGORY_PAGE_SIZE = 18;
+    private static final int[] BUY_QUANTITIES = {64, 32, 16, 8, 2, 1};
+    private static final int MAX_CUSTOM_BUY = 2304;
+    private final String buyConfirmTitle = color("&8Confirm Shop Purchase");
+    private final Map<UUID, Integer> quantityChoice = new HashMap<>();
+    private final Map<UUID, Integer> customBuyQuantity = new HashMap<>();
+    private final Set<UUID> awaitingShopQuantity = new HashSet<>();
+    private final Map<UUID, String> pendingShopItem = new HashMap<>();
     private final Map<UUID, String> currentCategory = new HashMap<>();
     private final Map<UUID, Integer> categoryPages = new HashMap<>();
     private final Map<UUID, Map<Integer, Material>> sellSlots = new HashMap<>();
@@ -136,6 +160,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         loadBounties();
         loadAuctions();
         loadCollections();
+        initializeEarnings();
 
         Bukkit.getPluginManager().registerEvents(this, this);
         getLogger().info("CustomShop enabled: shop, bounties, and persistent auction house.");
@@ -146,6 +171,128 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         saveBounties();
         saveAuctions();
         saveCollections();
+        saveOrePlacements();
+    }
+
+    // -------------------- MONEY EARNINGS --------------------
+    // All rewards use the existing Vault / EssentialsX economy.
+    // To change rates later, edit the mappings below and rebuild the JAR.
+    private void initializeEarnings() {
+        oreRewards.put(Material.COAL_ORE, 1.0);
+        oreRewards.put(Material.DEEPSLATE_COAL_ORE, 1.0);
+        oreRewards.put(Material.COPPER_ORE, 2.0);
+        oreRewards.put(Material.DEEPSLATE_COPPER_ORE, 2.0);
+        oreRewards.put(Material.IRON_ORE, 3.0);
+        oreRewards.put(Material.DEEPSLATE_IRON_ORE, 3.0);
+        oreRewards.put(Material.GOLD_ORE, 4.0);
+        oreRewards.put(Material.DEEPSLATE_GOLD_ORE, 4.0);
+        oreRewards.put(Material.NETHER_GOLD_ORE, 4.0);
+        oreRewards.put(Material.REDSTONE_ORE, 2.0);
+        oreRewards.put(Material.DEEPSLATE_REDSTONE_ORE, 2.0);
+        oreRewards.put(Material.LAPIS_ORE, 3.0);
+        oreRewards.put(Material.DEEPSLATE_LAPIS_ORE, 3.0);
+        oreRewards.put(Material.DIAMOND_ORE, 18.0);
+        oreRewards.put(Material.DEEPSLATE_DIAMOND_ORE, 18.0);
+        oreRewards.put(Material.EMERALD_ORE, 20.0);
+        oreRewards.put(Material.DEEPSLATE_EMERALD_ORE, 20.0);
+        oreRewards.put(Material.ANCIENT_DEBRIS, 35.0);
+
+        mobRewards.put(EntityType.ZOMBIE, 3.0);
+        mobRewards.put(EntityType.SKELETON, 3.0);
+        mobRewards.put(EntityType.SPIDER, 3.0);
+        mobRewards.put(EntityType.CREEPER, 5.0);
+        mobRewards.put(EntityType.ENDERMAN, 8.0);
+        mobRewards.put(EntityType.BLAZE, 6.0);
+        mobRewards.put(EntityType.WITCH, 8.0);
+        mobRewards.put(EntityType.WITHER_SKELETON, 10.0);
+        mobRewards.put(EntityType.ENDER_DRAGON, 500.0);
+
+        farmSpawnKey = new NamespacedKey(this, "no_mob_reward");
+        orePlacementsFile = new File(getDataFolder(), "player-placed-ores.yml");
+        YamlConfiguration yml = YamlConfiguration.loadConfiguration(orePlacementsFile);
+        playerPlacedOres.addAll(yml.getStringList("blocks"));
+    }
+
+    private String oreLocation(Block block) {
+        Location loc = block.getLocation();
+        return loc.getWorld().getUID() + ":" + loc.getBlockX() + ":" + loc.getBlockY() + ":" + loc.getBlockZ();
+    }
+
+    private void saveOrePlacements() {
+        if (orePlacementsFile == null) return;
+        YamlConfiguration yml = new YamlConfiguration();
+        yml.set("blocks", new ArrayList<>(playerPlacedOres));
+        try { yml.save(orePlacementsFile); }
+        catch (IOException ex) { getLogger().warning("Could not save placed ore locations: " + ex.getMessage()); }
+    }
+
+    private void payActivity(Player player, double amount, String activity) {
+        if (amount <= 0 || eco == null) return;
+        if (eco.depositPlayer(player, amount).transactionSuccess()) {
+            // Rate-limit chat notifications without reducing actual money earned.
+            long now = System.currentTimeMillis();
+            if (now - payoutNoticeTime.getOrDefault(player.getUniqueId(), 0L) >= 3000L) {
+                msg(player, "&a+$" + money(amount) + " &7(" + activity + ")");
+                payoutNoticeTime.put(player.getUniqueId(), now);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onOrePlace(BlockPlaceEvent event) {
+        if (oreRewards.containsKey(event.getBlockPlaced().getType())) {
+            playerPlacedOres.add(oreLocation(event.getBlockPlaced()));
+            saveOrePlacements();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onOreBreak(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        String key = oreLocation(block);
+        if (playerPlacedOres.remove(key)) {
+            saveOrePlacements();
+            return;
+        }
+        Double reward = oreRewards.get(block.getType());
+        if (reward != null && event.getPlayer().getGameMode() == org.bukkit.GameMode.SURVIVAL) {
+            payActivity(event.getPlayer(), reward, "Mining");
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFarmMobSpawn(CreatureSpawnEvent event) {
+        if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SPAWNER ||
+            event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SPAWNER_EGG ||
+            event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.CUSTOM) {
+            event.getEntity().getPersistentDataContainer().set(farmSpawnKey, PersistentDataType.BYTE, (byte) 1);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPaidMobDeath(EntityDeathEvent event) {
+        if (event.getEntity().getPersistentDataContainer().has(farmSpawnKey, PersistentDataType.BYTE)) return;
+        Player killer = event.getEntity().getKiller();
+        if (killer == null || killer.getGameMode() != org.bukkit.GameMode.SURVIVAL) return;
+        Double reward = mobRewards.get(event.getEntityType());
+        if (reward != null) payActivity(killer, reward, "Mob kill");
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPaidFishing(PlayerFishEvent event) {
+        if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH ||
+            event.getPlayer().getGameMode() != org.bukkit.GameMode.SURVIVAL ||
+            !(event.getCaught() instanceof Item caught)) return;
+        Material material = caught.getItemStack().getType();
+        double reward;
+        switch (material) {
+            case COD -> reward = 4.0;
+            case SALMON -> reward = 5.0;
+            case TROPICAL_FISH, PUFFERFISH -> reward = 8.0;
+            case BOW, ENCHANTED_BOOK, NAME_TAG, SADDLE, NAUTILUS_SHELL, FISHING_ROD -> reward = 30.0;
+            default -> reward = 0.0;
+        }
+        payActivity(event.getPlayer(), reward, "Fishing");
     }
 
     // -------------------- MESSAGES --------------------
@@ -633,11 +780,20 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                     meta.setDisplayName(color(item.getString("name", "&f" + readableItemName(material))));
                     meta.setLore(List.of(color("&7Amount: " + amount),
                             color("&6Price: $" + money(item.getDouble("price"))),
-                            color("&eClick to buy")));
+                            color("&eClick to review purchase")));
                     stack.setItemMeta(meta);
                 }
                 inv.setItem(index - begin, stack);
             }
+            UUID id = player.getUniqueId();
+            int choice = quantityChoice.getOrDefault(id, 0);
+            String quantityText = choice == BUY_QUANTITIES.length
+                    ? "Custom: " + customBuyQuantity.getOrDefault(id, 1)
+                    : "x" + BUY_QUANTITIES[choice];
+            inv.setItem(19, makeItem(Material.LIME_DYE, "&d&lBuy Quantity: &f" + quantityText,
+                    List.of("&7Click to cycle: 64, 32, 16, 8, 2, 1, Custom", "&7This is the number of items purchased")));
+            inv.setItem(20, makeItem(Material.WRITABLE_BOOK, "&d&lEnter Custom Quantity",
+                    List.of("&7Click and type an amount in chat", "&7Maximum: " + MAX_CUSTOM_BUY)));
             if (totalPages > 1) {
                 if (page > 0) inv.setItem(21, makeItem(Material.ARROW, "&ePrevious Page", List.of("&7Page " + (page + 1) + "/" + totalPages)));
                 inv.setItem(22, makeItem(Material.PAPER, "&fPage " + (page + 1) + " / " + totalPages, List.of("&7Browse all shop items")));
@@ -1164,7 +1320,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 || title.equals(leaderboardBountyTitle) || title.equals(leaderboardLevelTitle);
         boolean auctionMenu = title.equals(auctionTitle) || title.equals(myListingsTitle);
 
-        if (!title.equals(mainTitle) && !title.equals(categoryTitle) && !title.equals(sellTitle)
+        if (!title.equals(mainTitle) && !title.equals(categoryTitle) && !title.equals(buyConfirmTitle) && !title.equals(sellTitle)
                 && !bountyMenu && !serverMenu && !leaderboardMenu && !leaderboardRanking && !auctionMenu) return;
 
         event.setCancelled(true);
@@ -1268,6 +1424,17 @@ if (serverMenu) {
             return;
         }
 
+        if (title.equals(buyConfirmTitle)) {
+            if (slot == 11) {
+                pendingShopItem.remove(player.getUniqueId());
+                openCategory(player, currentCategory.getOrDefault(player.getUniqueId(), ""),
+                        categoryPages.getOrDefault(player.getUniqueId(), 0));
+            } else if (slot == 15) {
+                confirmShopPurchase(player);
+            }
+            return;
+        }
+
         if (title.equals(mainTitle)) {
             if (slot == event.getView().getTopInventory().getSize() - 1) {
                 openSell(player);
@@ -1312,6 +1479,18 @@ if (serverMenu) {
             }
 
             int page = categoryPages.getOrDefault(player.getUniqueId(), 0);
+            if (slot == 19) {
+                quantityChoice.put(player.getUniqueId(),
+                        (quantityChoice.getOrDefault(player.getUniqueId(), 0) + 1) % (BUY_QUANTITIES.length + 1));
+                openCategory(player, key, page);
+                return;
+            }
+            if (slot == 20) {
+                awaitingShopQuantity.add(player.getUniqueId());
+                player.closeInventory();
+                msg(player, "&dEnter the number of items to purchase (1-" + MAX_CUSTOM_BUY + "), or type &ccancel&d.");
+                return;
+            }
             List<ConfigurationSection> items = sortedCategoryItems(category);
             int totalPages = Math.max(1, (items.size() + CATEGORY_PAGE_SIZE - 1) / CATEGORY_PAGE_SIZE);
             if (slot == 21 && page > 0) { openCategory(player, key, page - 1); return; }
@@ -1323,28 +1502,8 @@ if (serverMenu) {
 
             Material material = Material.matchMaterial(item.getString("material", ""));
             if (material == null) return;
-            int amount = Math.max(1, Math.min(item.getInt("amount", 1), material.getMaxStackSize()));
-            double price = item.getDouble("price");
-            if (!Double.isFinite(price) || price < 0) {
-                msg(player, "&cThis item has an invalid price.");
-                return;
-            }
-            if (eco.getBalance(player) < price) {
-                msg(player, "&cNot enough money!");
-                return;
-            }
-            ItemStack purchase = createConfiguredItem(item, material, amount);
-            if (!canFit(player, purchase)) {
-                msg(player, "&cYour inventory is full!");
-                return;
-            }
-            if (!eco.withdrawPlayer(player, price).transactionSuccess()) {
-                msg(player, "&cPayment failed. You were not charged.");
-                return;
-            }
-            player.getInventory().addItem(purchase);
-            msg(player, "&aBought " + amount + " " + itemName(item, material) +
-                    " for $" + money(price));
+            pendingShopItem.put(player.getUniqueId(), item.getCurrentPath());
+            openShopConfirmation(player);
             return;
         }
 
@@ -1384,6 +1543,151 @@ if (serverMenu) {
     }
 
 
+
+    private int selectedBuyQuantity(UUID id) {
+        int choice = quantityChoice.getOrDefault(id, 0);
+        return choice == BUY_QUANTITIES.length
+                ? customBuyQuantity.getOrDefault(id, 1)
+                : BUY_QUANTITIES[Math.max(0, Math.min(choice, BUY_QUANTITIES.length - 1))];
+    }
+
+    private double shopOrderPrice(ConfigurationSection item, int quantity) {
+        int baseAmount = Math.max(1, item.getInt("amount", 1));
+        double basePrice = item.getDouble("price", -1);
+        if (!Double.isFinite(basePrice) || basePrice <= 0) return -1;
+        double raw = basePrice * quantity / baseAmount;
+        if (!Double.isFinite(raw) || raw <= 0 || raw > 1_000_000_000) return -1;
+        return Math.max(0.01, Math.ceil(raw * 100.0 - 0.000000001) / 100.0);
+    }
+
+    private void openShopConfirmation(Player player) {
+        String path = pendingShopItem.get(player.getUniqueId());
+        ConfigurationSection item = path == null ? null : getConfig().getConfigurationSection(path);
+        if (item == null) {
+            msg(player, "&cThat shop item is no longer available.");
+            pendingShopItem.remove(player.getUniqueId());
+            return;
+        }
+        Material material = Material.matchMaterial(item.getString("material", ""));
+        if (material == null) return;
+        int quantity = selectedBuyQuantity(player.getUniqueId());
+        double price = shopOrderPrice(item, quantity);
+        if (price < 0) {
+            msg(player, "&cInvalid shop item price.");
+            pendingShopItem.remove(player.getUniqueId());
+            return;
+        }
+        Inventory inv = Bukkit.createInventory(null, 27, buyConfirmTitle);
+        ItemStack preview = createConfiguredItem(item, material, Math.min(quantity, material.getMaxStackSize()));
+        ItemMeta meta = preview.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(color(item.getString("name", "&f" + readableItemName(material))));
+            meta.setLore(List.of(color("&7Total quantity: &f" + quantity),
+                    color("&6Total cost: $" + money(price))));
+            preview.setItemMeta(meta);
+        }
+        inv.setItem(13, preview);
+        inv.setItem(11, makeItem(Material.RED_CONCRETE, "&c&lCancel", List.of("&7Return to shop")));
+        inv.setItem(15, makeItem(Material.LIME_CONCRETE, "&a&lConfirm Purchase",
+                List.of("&7Receive: &f" + quantity + " items", "&7Pay: &6$" + money(price))));
+        player.openInventory(inv);
+    }
+
+    private boolean canFitShopQuantity(Player player, ItemStack template, int quantity) {
+        int capacity = 0;
+        int maxStack = Math.max(1, template.getMaxStackSize());
+        for (ItemStack existing : player.getInventory().getStorageContents()) {
+            if (existing == null || existing.getType().isAir()) capacity += maxStack;
+            else if (existing.isSimilar(template)) capacity += Math.max(0, maxStack - existing.getAmount());
+            if (capacity >= quantity) return true;
+        }
+        return false;
+    }
+
+    private void confirmShopPurchase(Player player) {
+        UUID id = player.getUniqueId();
+        String path = pendingShopItem.remove(id);
+        ConfigurationSection item = path == null ? null : getConfig().getConfigurationSection(path);
+        if (item == null) {
+            msg(player, "&cThis purchase has expired.");
+            player.closeInventory();
+            return;
+        }
+        Material material = Material.matchMaterial(item.getString("material", ""));
+        if (material == null) { player.closeInventory(); return; }
+        int quantity = selectedBuyQuantity(id);
+        double price = shopOrderPrice(item, quantity);
+        if (price < 0 || quantity < 1 || quantity > MAX_CUSTOM_BUY) {
+            msg(player, "&cInvalid purchase amount or price.");
+            player.closeInventory();
+            return;
+        }
+        ItemStack template = createConfiguredItem(item, material, 1);
+        if (!canFitShopQuantity(player, template, quantity)) {
+            msg(player, "&cNot enough inventory space for " + quantity + " items!");
+            openCategory(player, currentCategory.getOrDefault(id, ""), categoryPages.getOrDefault(id, 0));
+            return;
+        }
+        if (eco.getBalance(player) < price) {
+            msg(player, "&cNot enough money! You need $" + money(price));
+            openCategory(player, currentCategory.getOrDefault(id, ""), categoryPages.getOrDefault(id, 0));
+            return;
+        }
+        if (!eco.withdrawPlayer(player, price).transactionSuccess()) {
+            msg(player, "&cPayment failed. You were not charged.");
+            player.closeInventory();
+            return;
+        }
+        int remaining = quantity;
+        while (remaining > 0) {
+            int batch = Math.min(remaining, template.getMaxStackSize());
+            ItemStack stack = template.clone();
+            stack.setAmount(batch);
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(stack);
+            if (!leftovers.isEmpty()) {
+                for (ItemStack leftover : leftovers.values()) player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+                msg(player, "&eSome items were dropped near you due to an inventory change.");
+            }
+            remaining -= batch;
+        }
+        msg(player, "&aPurchased &f" + quantity + " " + itemName(item, material)
+                + " &afor &6$" + money(price));
+        openCategory(player, currentCategory.getOrDefault(id, ""), categoryPages.getOrDefault(id, 0));
+    }
+
+    @EventHandler
+    public void onShopQuantityChat(AsyncPlayerChatEvent event) {
+        UUID id = event.getPlayer().getUniqueId();
+        if (!awaitingShopQuantity.contains(id)) return;
+        event.setCancelled(true);
+        String input = event.getMessage().trim();
+        Bukkit.getScheduler().runTask(this, () -> {
+            Player player = Bukkit.getPlayer(id);
+            if (player == null || !awaitingShopQuantity.contains(id)) return;
+            if (input.equalsIgnoreCase("cancel")) {
+                awaitingShopQuantity.remove(id);
+                msg(player, "&7Custom amount cancelled.");
+            } else {
+                int count;
+                try {
+                    count = Integer.parseInt(input);
+                } catch (NumberFormatException e) {
+                    msg(player, "&cEnter a whole number from 1 to " + MAX_CUSTOM_BUY + " or type cancel.");
+                    return;
+                }
+                if (count < 1 || count > MAX_CUSTOM_BUY) {
+                    msg(player, "&cEnter a number from 1 to " + MAX_CUSTOM_BUY + ".");
+                    return;
+                }
+                customBuyQuantity.put(id, count);
+                quantityChoice.put(id, BUY_QUANTITIES.length);
+                awaitingShopQuantity.remove(id);
+                msg(player, "&aShop purchase quantity set to &f" + count + "&a.");
+            }
+            String category = currentCategory.get(id);
+            if (category != null) openCategory(player, category, categoryPages.getOrDefault(id, 0));
+        });
+    }
 
     private String itemName(ConfigurationSection item, Material material) {
         String name = item.getString("name", "");
@@ -1464,9 +1768,15 @@ if (serverMenu) {
     public void onQuit(PlayerQuitEvent event) {
         UUID id = event.getPlayer().getUniqueId();
         awaitingCustomAmount.remove(id);
+        awaitingShopQuantity.remove(id);
+        quantityChoice.remove(id);
+        customBuyQuantity.remove(id);
+        pendingShopItem.remove(id);
+        categoryPages.remove(id);
         selectedTargets.remove(id);
         currentCategory.remove(id);
         sellSlots.remove(id);
+        payoutNoticeTime.remove(id);
         auctionPageListings.remove(id);
         auctionPages.remove(id);
     }
