@@ -105,9 +105,11 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final String auctionTitle = color("&8&lAuction House");
     private final String myListingsTitle = color("&8&lMy Auction Listings");
     private final String auctionConfirmTitle = color("&8&lConfirm Auction Action");
+    private final Map<UUID, List<UUID>> ownAuctionPageListings = new HashMap<>();
     private final Map<UUID, UUID> pendingAuctionPurchase = new HashMap<>();
     private final Map<UUID, UUID> pendingAuctionCancel = new HashMap<>();
     private final Map<UUID, Double> pendingAuctionSale = new HashMap<>();
+    private final Map<UUID, ItemStack> pendingAuctionSaleItem = new HashMap<>();
     private final String leaderboardMenuTitle = color("&8&lLeaderboards");
     private final String leaderboardMoneyTitle = color("&8&lMoney Leaderboard");
     private final String leaderboardBountyTitle = color("&8&lBounty Leaderboard");
@@ -1120,6 +1122,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         pendingAuctionPurchase.remove(player.getUniqueId());
         pendingAuctionCancel.remove(player.getUniqueId());
         pendingAuctionSale.put(player.getUniqueId(), price);
+        pendingAuctionSaleItem.put(player.getUniqueId(), hand.clone());
         openAuctionConfirmation(player, hand, "&eList for &6$" + money(price),
                 "&7You will receive &a$" + money(price * SELLER_SHARE) + " &7if sold.");
     }
@@ -1168,6 +1171,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         pendingAuctionPurchase.remove(id);
         pendingAuctionCancel.remove(id);
         pendingAuctionSale.remove(id);
+        pendingAuctionSaleItem.remove(id);
     }
 
     private void createListing(Player seller, double price) {
@@ -1259,7 +1263,6 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 lore.add(color("&7Seller: &f" + listing.sellerName));
                 lore.add(color("&7Listing ID: &f" + shortId(listing.id)));
                 lore.add(color("&aClick to buy"));
-                display.setItemMeta(meta);
                 meta.setLore(lore);
                 display.setItemMeta(meta);
             }
@@ -1286,6 +1289,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             if (listing.sellerId.equals(player.getUniqueId())) own.add(listing);
         }
 
+        ownAuctionPageListings.put(player.getUniqueId(), own.stream().map(l -> l.id).toList());
         for (int i = 0; i < own.size() && i < 45; i++) {
             AuctionListing listing = own.get(i);
             ItemStack display = listing.item.clone();
@@ -1466,11 +1470,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             if (slot == 49) {
                 openAuctionHouse(player, 0);
             } else if (slot >= 0 && slot < 45) {
-                List<AuctionListing> own = new ArrayList<>();
-                for (AuctionListing listing : listings.values()) {
-                    if (listing.sellerId.equals(player.getUniqueId())) own.add(listing);
-                }
-                if (slot < own.size()) openAuctionCancelConfirmation(player, own.get(slot).id);
+                List<UUID> own = ownAuctionPageListings.getOrDefault(player.getUniqueId(), Collections.emptyList());
+                if (slot < own.size()) openAuctionCancelConfirmation(player, own.get(slot));
             }
             return;
         }
@@ -1484,6 +1485,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 UUID purchaseId = pendingAuctionPurchase.get(playerId);
                 UUID cancelId = pendingAuctionCancel.get(playerId);
                 Double salePrice = pendingAuctionSale.get(playerId);
+                ItemStack saleItem = pendingAuctionSaleItem.get(playerId);
                 clearPendingAuction(player);
                 if (purchaseId != null) {
                     buyListing(player, purchaseId);
@@ -1496,7 +1498,12 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                     }
                     openMyListings(player);
                 } else if (salePrice != null) {
-                    createListing(player, salePrice);
+                    ItemStack current = player.getInventory().getItemInMainHand();
+                    if (saleItem == null || current == null || !current.equals(saleItem)) {
+                        msg(player, "&cYour held item changed. Listing cancelled; use /ah sell again.");
+                    } else {
+                        createListing(player, salePrice);
+                    }
                     openAuctionHouse(player, 0);
                 }
             }
@@ -1926,6 +1933,7 @@ if (serverMenu) {
         pendingAuctionPurchase.remove(id);
         pendingAuctionCancel.remove(id);
         pendingAuctionSale.remove(id);
+        pendingAuctionSaleItem.remove(id);
     }
 
     // -------------------- BOUNTY STORAGE --------------------
