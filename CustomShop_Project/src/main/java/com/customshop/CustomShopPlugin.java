@@ -1463,7 +1463,43 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
 
         if (title.equals(myListingsTitle)) {
-            if (slot == 49) openAuctionHouse(player, 0);
+            if (slot == 49) {
+                openAuctionHouse(player, 0);
+            } else if (slot >= 0 && slot < 45) {
+                List<AuctionListing> own = new ArrayList<>();
+                for (AuctionListing listing : listings.values()) {
+                    if (listing.sellerId.equals(player.getUniqueId())) own.add(listing);
+                }
+                if (slot < own.size()) openAuctionCancelConfirmation(player, own.get(slot).id);
+            }
+            return;
+        }
+
+        if (title.equals(auctionConfirmTitle)) {
+            if (slot == 15) {
+                clearPendingAuction(player);
+                openAuctionHouse(player, auctionPages.getOrDefault(player.getUniqueId(), 0));
+            } else if (slot == 11) {
+                UUID playerId = player.getUniqueId();
+                UUID purchaseId = pendingAuctionPurchase.get(playerId);
+                UUID cancelId = pendingAuctionCancel.get(playerId);
+                Double salePrice = pendingAuctionSale.get(playerId);
+                clearPendingAuction(player);
+                if (purchaseId != null) {
+                    buyListing(player, purchaseId);
+                } else if (cancelId != null) {
+                    AuctionListing listing = listings.get(cancelId);
+                    if (listing != null && listing.sellerId.equals(playerId)) {
+                        cancelListing(player, cancelId.toString());
+                    } else {
+                        msg(player, "&cThat listing is no longer available.");
+                    }
+                    openMyListings(player);
+                } else if (salePrice != null) {
+                    createListing(player, salePrice);
+                    openAuctionHouse(player, 0);
+                }
+            }
             return;
         }
 
