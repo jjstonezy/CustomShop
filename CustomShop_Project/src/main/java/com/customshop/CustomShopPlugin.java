@@ -227,7 +227,31 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         catch (IOException ex) { getLogger().warning("Could not save placed ore locations: " + ex.getMessage()); }
     }
 
-    private void payActivity(Player player, double amount, String activity) {
+    private String formatRewardName(String name) {
+        StringJoiner result = new StringJoiner(" ");
+        for (String word : name.toLowerCase(Locale.ROOT).split("_")) {
+            result.add(Character.toUpperCase(word.charAt(0)) + word.substring(1));
+        }
+        return result.toString();
+    }
+
+    private String rewardSourceColor(String activity, String source) {
+        if (!activity.equals("Mining")) return "&f";
+        return switch (source) {
+            case "Coal" -> "&8"; // Dark gray so it remains readable in chat
+            case "Copper" -> "&6";
+            case "Iron" -> "&7";
+            case "Gold", "Nether Gold" -> "&e";
+            case "Redstone" -> "&c";
+            case "Lapis" -> "&9";
+            case "Diamond" -> "&b";
+            case "Emerald" -> "&a";
+            case "Ancient Debris" -> "&5";
+            default -> "&f";
+        };
+    }
+
+    private void payActivity(Player player, double amount, String activity, String source) {
         if (amount <= 0 || eco == null) return;
         if (!eco.depositPlayer(player, amount).transactionSuccess()) return;
 
@@ -235,7 +259,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         // VeinMiner can fire multiple BlockBreakEvents for one mined vein.
         UUID id = player.getUniqueId();
         pendingPayoutNotices.computeIfAbsent(id, ignored -> new LinkedHashMap<>())
-                .merge(activity, amount, Double::sum);
+                .merge(activity + " | " + source, amount, Double::sum);
 
         if (payoutNoticeScheduled.add(id)) {
             Bukkit.getScheduler().runTaskLater(this, () -> {
@@ -244,7 +268,12 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 Player online = Bukkit.getPlayer(id);
                 if (online == null || totals == null) return;
                 for (Map.Entry<String, Double> entry : totals.entrySet()) {
-                    msg(online, "&a+$" + money(entry.getValue()) + " &7(" + entry.getKey() + ")");
+                    String[] parts = entry.getKey().split(" \\| ", 2);
+                    String activity = parts[0];
+                    String source = parts.length > 1 ? parts[1] : "Unknown";
+                    msg(online, "&a&l+$" + money(entry.getValue())
+                            + " &7- " + activity + " &7| "
+                            + rewardSourceColor(activity, source) + "&l" + source);
                 }
             }, 40L);
         }
@@ -268,7 +297,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
         Double reward = oreRewards.get(block.getType());
         if (reward != null && event.getPlayer().getGameMode() == org.bukkit.GameMode.SURVIVAL) {
-            payActivity(event.getPlayer(), reward, "Mining");
+            payActivity(event.getPlayer(), reward, "Mining", readableItemName(block.getType()).replace("Deepslate ", "").replace(" Ore", ""));
         }
     }
 
@@ -287,7 +316,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         Player killer = event.getEntity().getKiller();
         if (killer == null || killer.getGameMode() != org.bukkit.GameMode.SURVIVAL) return;
         Double reward = mobRewards.get(event.getEntityType());
-        if (reward != null) payActivity(killer, reward, "Mob kill");
+        if (reward != null) payActivity(killer, reward, "Mob Kill", formatRewardName(event.getEntityType().name()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -304,7 +333,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             case BOW, ENCHANTED_BOOK, NAME_TAG, SADDLE, NAUTILUS_SHELL, FISHING_ROD -> reward = 30.0;
             default -> reward = 0.0;
         }
-        payActivity(event.getPlayer(), reward, "Fishing");
+        payActivity(event.getPlayer(), reward, "Fishing", readableItemName(material));
     }
 
     // -------------------- MESSAGES --------------------
