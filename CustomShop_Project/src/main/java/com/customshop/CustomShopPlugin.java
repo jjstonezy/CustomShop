@@ -222,6 +222,15 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         mobRewards.put(EntityType.WITHER_SKELETON, 10.0);
         mobRewards.put(EntityType.ENDER_DRAGON, 500.0);
 
+        // Passive farm animals: money per direct player kill.
+        mobRewards.put(EntityType.CHICKEN, 0.50);
+        mobRewards.put(EntityType.PIG, 0.75);
+        mobRewards.put(EntityType.SHEEP, 0.75);
+        mobRewards.put(EntityType.COW, 1.00);
+        mobRewards.put(EntityType.RABBIT, 0.50);
+        mobRewards.put(EntityType.MOOSHROOM, 1.00);
+        mobRewards.put(EntityType.GOAT, 0.75);
+
         farmSpawnKey = new NamespacedKey(this, "no_mob_reward");
         orePlacementsFile = new File(getDataFolder(), "player-placed-ores.yml");
         YamlConfiguration yml = YamlConfiguration.loadConfiguration(orePlacementsFile);
