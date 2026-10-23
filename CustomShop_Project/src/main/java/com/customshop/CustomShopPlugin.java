@@ -873,7 +873,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 inv.setItem(index - begin, stack);
             }
             UUID id = player.getUniqueId();
-            int choice = quantityChoice.getOrDefault(id, 0);
+            int choice = quantityChoice.getOrDefault(id, BUY_QUANTITIES.length - 1);
             String quantityText = choice == BUY_QUANTITIES.length
                     ? "Custom: " + customBuyQuantity.getOrDefault(id, 1)
                     : "x" + BUY_QUANTITIES[choice];
@@ -1603,7 +1603,7 @@ if (serverMenu) {
             int page = categoryPages.getOrDefault(player.getUniqueId(), 0);
             if (slot == 19) {
                 quantityChoice.put(player.getUniqueId(),
-                        (quantityChoice.getOrDefault(player.getUniqueId(), 0) + 1) % (BUY_QUANTITIES.length + 1));
+                        (quantityChoice.getOrDefault(player.getUniqueId(), BUY_QUANTITIES.length - 1) + 1) % (BUY_QUANTITIES.length + 1));
                 openCategory(player, key, page);
                 return;
             }
@@ -1632,7 +1632,7 @@ if (serverMenu) {
     }
 
     private int selectedBuyQuantity(UUID id) {
-        int choice = quantityChoice.getOrDefault(id, 0);
+        int choice = quantityChoice.getOrDefault(id, BUY_QUANTITIES.length - 1);
         return choice == BUY_QUANTITIES.length
                 ? customBuyQuantity.getOrDefault(id, 1)
                 : BUY_QUANTITIES[Math.max(0, Math.min(choice, BUY_QUANTITIES.length - 1))];
