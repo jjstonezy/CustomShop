@@ -848,7 +848,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                     icon.setItemMeta(meta);
                 }
                 int slot = child.getInt("slot", 0);
-                if (slot >= 0 && slot < 18) inv.setItem(slot, icon);
+                if (slot >= 0 && slot < inv.getSize() && slot != 18) inv.setItem(slot, icon);
             }
         } else {
             List<ConfigurationSection> items = sortedCategoryItems(cat);
@@ -1592,7 +1592,7 @@ if (serverMenu) {
             if (children != null && !children.getKeys(false).isEmpty()) {
                 for (String childKey : children.getKeys(false)) {
                     ConfigurationSection child = children.getConfigurationSection(childKey);
-                    if (child != null && child.getInt("slot", 0) == slot && slot < 18) {
+                    if (child != null && child.getInt("slot", 0) == slot && slot != 18 && slot < 27) {
                         openCategory(player, key + "." + childKey);
                         return;
                     }
