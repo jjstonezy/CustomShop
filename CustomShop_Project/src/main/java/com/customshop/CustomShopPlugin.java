@@ -64,6 +64,10 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private File moneyNotificationFile;
     private YamlConfiguration moneyNotificationData;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    // Group reward notifications for 2 ticks (0.1 seconds), without delaying payouts.
+    private record RewardNoticeKey(String activity, String source) {}
+    private final Map<UUID, Map<RewardNoticeKey, Double>> pendingMoneyNotices = new HashMap<>();
+    private final Set<UUID> scheduledMoneyNotices = new HashSet<>();
 
     private static final int CATEGORY_PAGE_SIZE = 18;
     private static final int[] BUY_QUANTITIES = {64, 32, 16, 8, 2, 1};
@@ -176,6 +180,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
     @Override
     public void onDisable() {
+        pendingMoneyNotices.clear();
+        scheduledMoneyNotices.clear();
         saveBounties();
         saveAuctions();
         saveCollections();
@@ -259,15 +265,48 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         };
     }
 
+    private String oreDisplayName(Material material) {
+        // The material captured when the break event fires is the sole source of truth.
+        return switch (material) {
+            case COAL_ORE, DEEPSLATE_COAL_ORE -> "Coal";
+            case COPPER_ORE, DEEPSLATE_COPPER_ORE -> "Copper";
+            case IRON_ORE, DEEPSLATE_IRON_ORE -> "Iron";
+            case GOLD_ORE, DEEPSLATE_GOLD_ORE -> "Gold";
+            case NETHER_GOLD_ORE -> "Nether Gold";
+            case REDSTONE_ORE, DEEPSLATE_REDSTONE_ORE -> "Redstone";
+            case LAPIS_ORE, DEEPSLATE_LAPIS_ORE -> "Lapis";
+            case DIAMOND_ORE, DEEPSLATE_DIAMOND_ORE -> "Diamond";
+            case EMERALD_ORE, DEEPSLATE_EMERALD_ORE -> "Emerald";
+            case ANCIENT_DEBRIS -> "Ancient Debris";
+            default -> readableItemName(material);
+        };
+    }
+
     private void payActivity(Player player, double amount, String activity, String source) {
         if (amount <= 0 || eco == null) return;
         if (!eco.depositPlayer(player, amount).transactionSuccess()) return;
+        if (!moneyNotificationsEnabled(player)) return;
 
-        // Rewards and their notices both happen immediately.
-        if (moneyNotificationsEnabled(player)) {
-            msg(player, "&a+$" + money(amount)
-                    + " &7- " + activity + " &7| "
-                    + rewardSourceColor(activity, source) + source);
+        UUID id = player.getUniqueId();
+        // Immutable activity/source pair: never infer an ore name from a different pending reward.
+        RewardNoticeKey key = new RewardNoticeKey(activity, source);
+        pendingMoneyNotices.computeIfAbsent(id, ignored -> new LinkedHashMap<>())
+                .merge(key, amount, Double::sum);
+
+        if (scheduledMoneyNotices.add(id)) {
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                scheduledMoneyNotices.remove(id);
+                Map<RewardNoticeKey, Double> totals = pendingMoneyNotices.remove(id);
+                Player online = Bukkit.getPlayer(id);
+                if (online == null || totals == null || !moneyNotificationsEnabled(online)) return;
+                for (Map.Entry<RewardNoticeKey, Double> entry : totals.entrySet()) {
+                    String noticeActivity = entry.getKey().activity();
+                    String noticeSource = entry.getKey().source();
+                    msg(online, "&a+$" + money(entry.getValue()) + " &7- "
+                            + noticeActivity + " &7| "
+                            + rewardSourceColor(noticeActivity, noticeSource) + noticeSource);
+                }
+            }, 2L);
         }
     }
 
@@ -313,9 +352,15 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
             saveOrePlacements();
             return;
         }
-        Double reward = oreRewards.get(block.getType());
+        Material mined = block.getType();
+        Double reward = oreRewards.get(mined);
         if (reward != null && event.getPlayer().getGameMode() == org.bukkit.GameMode.SURVIVAL) {
-            payActivity(event.getPlayer(), reward, "Mining", readableItemName(block.getType()).replace("Deepslate ", "").replace(" Ore", ""));
+            String oreName = oreDisplayName(mined);
+            if (getConfig().getBoolean("debug-reward-notifications", false)) {
+                getLogger().info("MONEY-ORE player=" + event.getPlayer().getName()
+                        + " material=" + mined.name() + " label=" + oreName + " amount=" + reward);
+            }
+            payActivity(event.getPlayer(), reward, "Mining", oreName);
         }
     }
 
@@ -1940,6 +1985,8 @@ if (serverMenu) {
         selectedTargets.remove(id);
         currentCategory.remove(id);
         sellSlots.remove(id);
+        pendingMoneyNotices.remove(id);
+        scheduledMoneyNotices.remove(id);
         auctionPageListings.remove(id);
         auctionPages.remove(id);
         pendingAuctionPurchase.remove(id);
