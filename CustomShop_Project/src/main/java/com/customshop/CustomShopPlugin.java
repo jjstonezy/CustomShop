@@ -193,24 +193,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     // All rewards use the existing Vault / EssentialsX economy.
     // To change rates later, edit the mappings below and rebuild the JAR.
     private void initializeEarnings() {
-        oreRewards.put(Material.COAL_ORE, 1.0);
-        oreRewards.put(Material.DEEPSLATE_COAL_ORE, 1.0);
-        oreRewards.put(Material.COPPER_ORE, 2.0);
-        oreRewards.put(Material.DEEPSLATE_COPPER_ORE, 2.0);
-        oreRewards.put(Material.IRON_ORE, 3.0);
-        oreRewards.put(Material.DEEPSLATE_IRON_ORE, 3.0);
-        oreRewards.put(Material.GOLD_ORE, 4.0);
-        oreRewards.put(Material.DEEPSLATE_GOLD_ORE, 4.0);
-        oreRewards.put(Material.NETHER_GOLD_ORE, 4.0);
-        oreRewards.put(Material.REDSTONE_ORE, 2.0);
-        oreRewards.put(Material.DEEPSLATE_REDSTONE_ORE, 2.0);
-        oreRewards.put(Material.LAPIS_ORE, 3.0);
-        oreRewards.put(Material.DEEPSLATE_LAPIS_ORE, 3.0);
-        oreRewards.put(Material.DIAMOND_ORE, 18.0);
-        oreRewards.put(Material.DEEPSLATE_DIAMOND_ORE, 18.0);
-        oreRewards.put(Material.EMERALD_ORE, 20.0);
-        oreRewards.put(Material.DEEPSLATE_EMERALD_ORE, 20.0);
-        oreRewards.put(Material.ANCIENT_DEBRIS, 35.0);
+        // No automatic mining-money rewards. Mining XP is awarded by CustomLevels.
+        // Players can still sell mined resources with CustomSell.
 
         mobRewards.put(EntityType.ZOMBIE, 3.0);
         mobRewards.put(EntityType.SKELETON, 3.0);
@@ -221,15 +205,6 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         mobRewards.put(EntityType.WITCH, 8.0);
         mobRewards.put(EntityType.WITHER_SKELETON, 10.0);
         mobRewards.put(EntityType.ENDER_DRAGON, 500.0);
-
-        // Passive farm animals: money per direct player kill.
-        mobRewards.put(EntityType.CHICKEN, 0.50);
-        mobRewards.put(EntityType.PIG, 0.75);
-        mobRewards.put(EntityType.SHEEP, 0.75);
-        mobRewards.put(EntityType.COW, 1.00);
-        mobRewards.put(EntityType.RABBIT, 0.50);
-        mobRewards.put(EntityType.MOOSHROOM, 1.00);
-        mobRewards.put(EntityType.GOAT, 0.75);
 
         farmSpawnKey = new NamespacedKey(this, "no_mob_reward");
         orePlacementsFile = new File(getDataFolder(), "player-placed-ores.yml");
