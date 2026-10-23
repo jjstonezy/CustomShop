@@ -1630,7 +1630,8 @@ if (serverMenu) {
 
         if (title.equals(mainTitle)) {
             if (slot == event.getView().getTopInventory().getSize() - 1) {
-                openSell(player);
+                player.closeInventory();
+                Bukkit.getScheduler().runTask(this, () -> player.performCommand("sell"));
                 return;
             }
             ConfigurationSection categories = getConfig().getConfigurationSection("categories");
