@@ -61,8 +61,8 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final Set<String> playerPlacedOres = new HashSet<>();
     private File orePlacementsFile;
     private NamespacedKey farmSpawnKey;
-    private final Map<UUID, Map<String, Double>> pendingPayoutNotices = new HashMap<>();
-    private final Set<UUID> payoutNoticeScheduled = new HashSet<>();
+    private File moneyNotificationFile;
+    private YamlConfiguration moneyNotificationData;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private static final int CATEGORY_PAGE_SIZE = 18;
@@ -146,7 +146,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
         eco = provider.getProvider();
 
-        String[] commands = {"shop", "bounty", "bounties", "menu", "ah"};
+        String[] commands = {"shop", "bounty", "bounties", "menu", "ah", "togglemoney"};
         for (String name : commands) {
             if (getCommand(name) == null) {
                 getLogger().severe("Missing command in plugin.yml: " + name);
@@ -167,6 +167,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         loadBounties();
         loadAuctions();
         loadCollections();
+        loadMoneyNotificationPreferences();
         initializeEarnings();
 
         Bukkit.getPluginManager().registerEvents(this, this);
@@ -178,6 +179,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         saveBounties();
         saveAuctions();
         saveCollections();
+        saveMoneyNotificationPreferences();
         saveOrePlacements();
     }
 
@@ -261,28 +263,38 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         if (amount <= 0 || eco == null) return;
         if (!eco.depositPlayer(player, amount).transactionSuccess()) return;
 
-        // Deposit every reward immediately, but combine notifications over two seconds.
-        // VeinMiner can fire multiple BlockBreakEvents for one mined vein.
-        UUID id = player.getUniqueId();
-        pendingPayoutNotices.computeIfAbsent(id, ignored -> new LinkedHashMap<>())
-                .merge(activity + " | " + source, amount, Double::sum);
-
-        if (payoutNoticeScheduled.add(id)) {
-            Bukkit.getScheduler().runTaskLater(this, () -> {
-                payoutNoticeScheduled.remove(id);
-                Map<String, Double> totals = pendingPayoutNotices.remove(id);
-                Player online = Bukkit.getPlayer(id);
-                if (online == null || totals == null) return;
-                for (Map.Entry<String, Double> entry : totals.entrySet()) {
-                    String[] parts = entry.getKey().split(" \\| ", 2);
-                    String noticeActivity = parts[0];
-                    String noticeSource = parts.length > 1 ? parts[1] : "Unknown";
-                    msg(online, "&a&l+$" + money(entry.getValue())
-                            + " &7- " + noticeActivity + " &7| "
-                            + rewardSourceColor(noticeActivity, noticeSource) + "&l" + noticeSource);
-                }
-            }, 40L);
+        // Rewards and their notices both happen immediately.
+        if (moneyNotificationsEnabled(player)) {
+            msg(player, "&a+$" + money(amount)
+                    + " &7- " + activity + " &7| "
+                    + rewardSourceColor(activity, source) + source);
         }
+    }
+
+    // Preferences are stored separately so no shop/economy data is modified.
+    private void loadMoneyNotificationPreferences() {
+        moneyNotificationFile = new File(getDataFolder(), "money-notifications.yml");
+        moneyNotificationData = YamlConfiguration.loadConfiguration(moneyNotificationFile);
+    }
+
+    private boolean moneyNotificationsEnabled(Player player) {
+        return moneyNotificationData.getBoolean("players." + player.getUniqueId() + ".enabled", true);
+    }
+
+    private void saveMoneyNotificationPreferences() {
+        if (moneyNotificationData == null || moneyNotificationFile == null) return;
+        try {
+            moneyNotificationData.save(moneyNotificationFile);
+        } catch (IOException ex) {
+            getLogger().warning("Could not save money notification preferences: " + ex.getMessage());
+        }
+    }
+
+    private void toggleMoneyNotifications(Player player) {
+        boolean enabled = !moneyNotificationsEnabled(player);
+        moneyNotificationData.set("players." + player.getUniqueId() + ".enabled", enabled);
+        saveMoneyNotificationPreferences();
+        msg(player, "&7Money notifications are now " + (enabled ? "&aenabled&7." : "&cdisabled&7."));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -458,6 +470,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
 
         switch (cmd) {
+            case "togglemoney" -> toggleMoneyNotifications(player);
             case "shop" -> { if (hasRequiredLevel(player, 10, "/shop")) openMain(player); }
             case "menu" -> openMenu(player, 1);
             case "bounty" -> handleBountyCommand(player, args);
@@ -1927,7 +1940,6 @@ if (serverMenu) {
         selectedTargets.remove(id);
         currentCategory.remove(id);
         sellSlots.remove(id);
-        pendingPayoutNotices.remove(id);
         auctionPageListings.remove(id);
         auctionPages.remove(id);
         pendingAuctionPurchase.remove(id);
