@@ -71,7 +71,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
     private static final int CATEGORY_PAGE_SIZE = 18;
     private static final int[] BUY_QUANTITIES = {64, 32, 16, 8, 2, 1};
-    private static final int MAX_CUSTOM_BUY = 2304;
+    private static final int MAX_CUSTOM_BUY = 64;
     private final String buyConfirmTitle = color("&8Confirm Shop Purchase");
     private final Map<UUID, Integer> quantityChoice = new HashMap<>();
     private final Map<UUID, Integer> customBuyQuantity = new HashMap<>();
@@ -79,7 +79,6 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private final Map<UUID, String> pendingShopItem = new HashMap<>();
     private final Map<UUID, String> currentCategory = new HashMap<>();
     private final Map<UUID, Integer> categoryPages = new HashMap<>();
-    private final Map<UUID, Map<Integer, Material>> sellSlots = new HashMap<>();
 
     private final Map<UUID, Double> bounties = new HashMap<>();
     private final Map<UUID, String> bountyNames = new HashMap<>();
@@ -101,7 +100,6 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
     private YamlConfiguration collectionData;
 
     private final String categoryTitle = color("&8Shop Category");
-    private final String sellTitle = color("&c&lSell Items");
     private final String bountyTargetTitle = color("&8&lChoose Bounty Target");
     private final String bountyAmountTitle = color("&8&lChoose Bounty Amount");
     private final String menuTitle1 = color("&8&lSite Chaos Menu");
@@ -633,10 +631,9 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
 
         inv.setItem(inv.getSize() - 1, makeItem(Material.GOLD_INGOT,
                 "&6&lSell Items", List.of("&7Sell eligible items from your inventory",
-                        "&eYou receive 70% of the buy price")));
+                        "&eUses the /sell system and its prices")));
         currentCategory.remove(player.getUniqueId());
         categoryPages.remove(player.getUniqueId());
-        sellSlots.remove(player.getUniqueId());
         player.openInventory(inv);
     }
 
@@ -862,13 +859,14 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 ConfigurationSection item = items.get(index);
                 Material material = Material.matchMaterial(item.getString("material", ""));
                 if (material == null) continue;
-                int amount = Math.max(1, Math.min(item.getInt("amount", 1), material.getMaxStackSize()));
+                int selectedQuantity = selectedBuyQuantity(player.getUniqueId());
+                int amount = Math.min(selectedQuantity, material.getMaxStackSize());
                 ItemStack stack = createConfiguredItem(item, material, amount);
                 ItemMeta meta = stack.getItemMeta();
                 if (meta != null) {
                     meta.setDisplayName(color(item.getString("name", "&f" + readableItemName(material))));
-                    meta.setLore(List.of(color("&7Amount: " + amount),
-                            color("&6Price: $" + money(item.getDouble("price"))),
+                    meta.setLore(List.of(color("&7Selected quantity: " + selectedQuantity),
+                            color("&6Total price: $" + money(shopOrderPrice(item, selectedQuantity))),
                             color("&eClick to review purchase")));
                     stack.setItemMeta(meta);
                 }
@@ -893,7 +891,6 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         inv.setItem(18, makeItem(Material.ARROW, "&cBack", List.of("&7Return to the previous menu")));
         currentCategory.put(player.getUniqueId(), key);
         categoryPages.put(player.getUniqueId(), page);
-        sellSlots.remove(player.getUniqueId());
         player.openInventory(inv);
     }
 
@@ -924,70 +921,6 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
         }
         stack.setItemMeta(meta);
         return stack;
-    }
-
-    private ConfigurationSection findItem(Material material) {
-        ConfigurationSection categories = getConfig().getConfigurationSection("categories");
-        if (categories == null) return null;
-        return findItemInSection(categories, material);
-    }
-
-    private ConfigurationSection findItemInSection(ConfigurationSection section, Material material) {
-        for (String key : section.getKeys(false)) {
-            ConfigurationSection child = section.getConfigurationSection(key);
-            if (child == null) continue;
-
-            ConfigurationSection items = child.getConfigurationSection("items");
-            if (items != null) {
-                for (String id : items.getKeys(false)) {
-                    ConfigurationSection item = items.getConfigurationSection(id);
-                    if (item != null && material.name().equalsIgnoreCase(
-                            item.getString("material", ""))) {
-                        return item;
-                    }
-                }
-            }
-
-            ConfigurationSection nested = child.getConfigurationSection("categories");
-            if (nested != null) {
-                ConfigurationSection found = findItemInSection(nested, material);
-                if (found != null) return found;
-            }
-        }
-        return null;
-    }
-
-    private void openSell(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 54, sellTitle);
-        Map<Integer, Material> slots = new HashMap<>();
-        Set<Material> seen = new HashSet<>();
-        int slot = 0;
-
-        for (ItemStack stack : player.getInventory().getStorageContents()) {
-            if (stack == null || stack.getType().isAir() || seen.contains(stack.getType())) continue;
-            Material material = stack.getType();
-            ConfigurationSection item = findItem(material);
-            if (item == null) continue;
-            seen.add(material);
-
-            double unitPrice = item.getDouble("price") / Math.max(1, item.getInt("amount", 1));
-            int owned = 0;
-            for (ItemStack s : player.getInventory().getStorageContents()) {
-                if (s != null && s.getType() == material) owned += s.getAmount();
-            }
-
-            inv.setItem(slot, makeItem(material, "&f" + readableItemName(material),
-                    List.of("&7You have: " + owned,
-                            "&6Sell price each: $" + money(unitPrice * 0.70),
-                            "&eClick to sell all")));
-            slots.put(slot, material);
-            if (++slot >= 45) break;
-        }
-
-        inv.setItem(49, makeItem(Material.ARROW, "&cBack to Shop", List.of("&7Return to categories")));
-        sellSlots.put(player.getUniqueId(), slots);
-        currentCategory.remove(player.getUniqueId());
-        player.openInventory(inv);
     }
 
     // -------------------- BOUNTIES --------------------
@@ -1474,7 +1407,7 @@ public class CustomShopPlugin extends JavaPlugin implements Listener, CommandExe
                 || title.equals(leaderboardBountyTitle) || title.equals(leaderboardLevelTitle);
         boolean auctionMenu = title.equals(auctionTitle) || title.equals(myListingsTitle) || title.equals(auctionConfirmTitle);
 
-        if (!title.equals(mainTitle) && !title.equals(categoryTitle) && !title.equals(buyConfirmTitle) && !title.equals(sellTitle)
+        if (!title.equals(mainTitle) && !title.equals(categoryTitle) && !title.equals(buyConfirmTitle)
                 && !bountyMenu && !serverMenu && !leaderboardMenu && !leaderboardRanking && !auctionMenu) return;
 
         event.setCancelled(true);
@@ -1646,11 +1579,6 @@ if (serverMenu) {
             return;
         }
 
-        if (slot == 49 && title.equals(sellTitle)) {
-            openMain(player);
-            return;
-        }
-
         if (title.equals(categoryTitle)) {
             String key = currentCategory.get(player.getUniqueId());
             if (key == null) return;
@@ -1701,42 +1629,7 @@ if (serverMenu) {
             return;
         }
 
-        if (title.equals(sellTitle)) {
-            Material material = sellSlots.getOrDefault(player.getUniqueId(),
-                    Collections.emptyMap()).get(slot);
-            if (material == null) return;
-            ConfigurationSection item = findItem(material);
-            if (item == null) return;
-
-            int amount = 0;
-            for (ItemStack stack : player.getInventory().getStorageContents()) {
-                if (stack != null && stack.getType() == material) amount += stack.getAmount();
-            }
-            if (amount <= 0) {
-                msg(player, "&cYou don't have that item.");
-                openSell(player);
-                return;
-            }
-
-            double unitPrice = item.getDouble("price") / Math.max(1, item.getInt("amount", 1));
-            double total = unitPrice * 0.70 * amount;
-
-            for (int i = 0; i < player.getInventory().getStorageContents().length; i++) {
-                ItemStack stack = player.getInventory().getItem(i);
-                if (stack != null && stack.getType() == material) player.getInventory().setItem(i, null);
-            }
-            if (!eco.depositPlayer(player, total).transactionSuccess()) {
-                msg(player, "&cPayment failed. Contact an administrator.");
-                openSell(player);
-                return;
-            }
-            msg(player, "&aSold " + amount + " " + readableItemName(material) +
-                    " for $" + money(total));
-            openSell(player);
-        }
     }
-
-
 
     private int selectedBuyQuantity(UUID id) {
         int choice = quantityChoice.getOrDefault(id, 0);
@@ -1869,8 +1762,17 @@ if (serverMenu) {
                     msg(player, "&cEnter a whole number from 1 to " + MAX_CUSTOM_BUY + " or type cancel.");
                     return;
                 }
-                if (count < 1 || count > MAX_CUSTOM_BUY) {
-                    msg(player, "&cEnter a number from 1 to " + MAX_CUSTOM_BUY + ".");
+                if (count > MAX_CUSTOM_BUY) {
+                    awaitingShopQuantity.remove(id);
+                    quantityChoice.put(id, BUY_QUANTITIES.length - 1);
+                    customBuyQuantity.remove(id);
+                    msg(player, "&cMaximum is 64. Buy quantity reset to 1.");
+                    String category = currentCategory.get(id);
+                    if (category != null) openCategory(player, category, categoryPages.getOrDefault(id, 0));
+                    return;
+                }
+                if (count < 1) {
+                    msg(player, "&cEnter a whole number from 1 to 64.");
                     return;
                 }
                 customBuyQuantity.put(id, count);
@@ -1969,7 +1871,6 @@ if (serverMenu) {
         categoryPages.remove(id);
         selectedTargets.remove(id);
         currentCategory.remove(id);
-        sellSlots.remove(id);
         pendingMoneyNotices.remove(id);
         scheduledMoneyNotices.remove(id);
         auctionPageListings.remove(id);
